@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -22,7 +23,7 @@ class SellerProfile(models.Model):
 class Store(models.Model):
     seller = models.ForeignKey(
         SellerProfile,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
     )
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -68,3 +69,39 @@ class Product(models.Model):
     def __str__(self):
         return self.name
     
+class Cart(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="cart"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Cart of {self.user.username}"
+    
+class CartItem(models.Model):   
+    cart = models.ForeignKey(
+        Cart,on_delete=models.CASCADE,
+        related_name="items"
+    )   
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="cart_items"
+    )
+    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cart", "product"],
+                name="unique_cart_product"
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
