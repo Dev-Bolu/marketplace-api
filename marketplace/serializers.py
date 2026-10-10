@@ -15,12 +15,30 @@ from .models import (
 
 
 
+
 class CategorySerializer(serializers.ModelSerializer):
     slug = serializers.SlugField(required=False, allow_blank=True)
 
     class Meta:
         model = Category
         fields = "__all__"
+
+    def validate_name(self, value):
+        value = value.strip()
+
+        categories = Category.objects.filter(
+            name__iexact=value
+        )
+        if self.instance:
+            categories = categories.exclude(
+                pk=self.instance.pk
+            )
+        if categories.exists():
+            raise serializers.ValidationError(
+                "A category with this name already exists."
+            )
+        return value
+
 
 
 class ProductSerializer(serializers.ModelSerializer):
