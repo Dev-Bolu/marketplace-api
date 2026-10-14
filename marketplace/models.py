@@ -27,7 +27,7 @@ class Store(models.Model):
         SellerProfile,
         on_delete=models.CASCADE,
     )
-    name = models.CharField(max_length=100)
+    store_name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     location = models.CharField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
@@ -35,7 +35,7 @@ class Store(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.name
+        return self.store_name
     
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -169,6 +169,7 @@ class OrderItem(models.Model):
     @property
     def subtotal(self):
         return self.quantity * self.unit_price
+
 
 
     

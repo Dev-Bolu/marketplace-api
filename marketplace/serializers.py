@@ -53,12 +53,46 @@ class CategorySerializer(serializers.ModelSerializer):
         return value
 
 
+class SellerProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(
+        source="user.username",
+        read_only=True
+    )
+
+    class Meta:
+        model = SellerProfile
+        fields = [
+            "id",
+            "username",
+            "business_name",
+            "phone_number",
+            "created_at",
+        ]
+        read_only_fields = ["created_at"]
+    
+class StoreSerializer(serializers.ModelSerializer):
+    seller = serializers.CharField(
+        source="seller.business_name",
+        read_only=True
+    )
+
+    class Meta:
+        model = Store
+        fields = "__all__"
+        read_only_fields = ["seller", "created_at", "updated_at"]
+        
 
 class ProductSerializer(serializers.ModelSerializer):
-        
+    store_id = serializers.IntegerField(write_only=True)
+
     class Meta:
         model = Product
         fields = "__all__"
+        read_only_fields = [
+            "store",
+            "created_at",
+            "updated_at"
+        ]
 
     def validate_price(self, value):
         if value <= 0:
@@ -66,27 +100,13 @@ class ProductSerializer(serializers.ModelSerializer):
                 "Price must be greater than zero."
             )
         return value
-    
+
     def validate_stock(self, value):
         if value < 0:
             raise serializers.ValidationError(
-            "Stock cannot be negative."
-        )
+                "Stock cannot be negative."
+            )
         return value
-
-
-class StoreSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Store
-        fields = "__all__"
-        
-
-class SellerProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SellerProfile
-        fields = "__all__"
-        read_only_fields = ["user", "created_at"]
-    
 
 class CartItemSerializer(serializers.ModelSerializer):
     class Meta:
