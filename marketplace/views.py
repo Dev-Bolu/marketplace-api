@@ -410,33 +410,48 @@ class CartItemDetailView(APIView):
         return Response(serializer.data)
 
     def patch(self, request, pk):
+        # Retrieve only an item belonging to the authenticated user.
         cart_item = get_object_or_404(
             CartItem,
             pk=pk,
-            cart__user=request.user
+            cart__user=request.user,
         )
+
+        allowed_keys = {"quantity"}
+        incoming_keys = set(request.data.keys())
+
+        # Reject fields other than quantity.
+        if not incoming_keys.issubset(allowed_keys):
+            return Response(
+                {"detail": "Only the 'quantity' field can be updated."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Prevent an empty PATCH request.
+        if "quantity" not in incoming_keys:
+            return Response(
+                {"quantity": ["This field is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         serializer = CartItemSerializer(
             cart_item,
             data=request.data,
-            partial=True
+            partial=True,
         )
 
         if serializer.is_valid():
-            # get the incoming quantity if provided, else keep existing
-            new_qty = serializer.validated_data.get("quantity", cart_item.quantity)
-
-            # stock check using cart_item.product.stock
-            if new_qty > cart_item.product.stock:
-                return Response(
-                    {"detail": "Requested quantity exceeds available stock."},
-                    status=400
-                )
-
             serializer.save()
-            return Response(serializer.data)
+            return Response(
+                serializer.data,
+                status=status.HTTP_200_OK,
+            )
 
-        return Response(serializer.errors, status=400)
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     def delete(self, request, pk):
         cart_item = get_object_or_404(
             CartItem,
@@ -445,4 +460,5 @@ class CartItemDetailView(APIView):
         )
         cart_item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
     
