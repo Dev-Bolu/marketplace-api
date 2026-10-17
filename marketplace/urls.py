@@ -48,6 +48,10 @@ urlpatterns = [
     
     path("cart/", views.CartView.as_view(),
     name="cart",),
+    path("cart/items/", views.CartItemView.as_view(),
+    name="cart-item",),
+    path("cart/items/<int:pk>/", views.CartItemDetailView.as_view(),
+    name="cart-item-detail",),
 
     
     ]

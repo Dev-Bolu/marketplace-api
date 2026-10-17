@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YSXL University - Application Form</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f6f8;
+      margin: 20px;
+      padding: 0;
+    }
+    .form-container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    h1, h2 {
+      color: #1a365d;
+    }
+    fieldset {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 15px 20px;
+      margin-bottom: 20px;
+    }
+    legend {
+      font-weight: bold;
+      color: #0f172a;
+      padding: 0 5px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #334155;
+    }
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="number"],
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="month"],
+    input[type="week"],
+    input[type="time"],
+    input[type="search"],
+    input[type="file"] {
+      padding: 8px 12px;
+      border: 1px solid #94a3b8;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .inline-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 5px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 20px;
+    }
+    input[type="submit"],
+    input[type="reset"],
+    button {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      border: none;
+    }
+    input[type="submit"] {
+      background-color: #2563eb;
+      color: white;
+    }
+    input[type="submit"]:hover {
+      background-color: #1d4ed8;
+    }
+    input[type="reset"] {
+      background-color: #e2e8f0;
+      color: #334155;
+    }
+    button.info-btn {
+      background-color: #0d9488;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-container">
+    <h1>YSXL University</h1>
+    <p>Please complete the official undergraduate / postgraduate admission application form below.</p>
+
+    <!-- Search bar for portal topics -->
+    <div class="form-group">
+      <label for="gsearch">Search Portal Help / FAQs:</label>
+      <input type="search" id="gsearch" name="gsearch" placeholder="Type keyword to search...">
+    </div>
+
+    <form action="myserver.com/apply" method="POST" enctype="multipart/form-data">
+      
+      <!-- Hidden Applicant Metadata ID -->
+      <input type="hidden" id="custId" name="custId" value="3487">
+
+      <!-- Section 1: Account Credentials -->
+      <fieldset>
+        <legend>Account Credentials</legend>
+
+        <div class="form-group">
+          <label for="fname">First Name:</label>
+          <input type="text" id="fname" name="fname" placeholder="Enter first name" required>
+        </div>
+
+        <div class="form-group">
+          <label for="pwd">Portal Account Password:</label>
+          <input type="password" id="pwd" name="pwd" required>
+        </div>
+      </fieldset>
+
+      <!-- Section 2: Personal Information -->
+      <fieldset>
+        <legend>Personal Information</legend>
+
+        <div class="form-group">
+          <label for="dob">Date of Birth:</label>
+          <input type="date" id="dob" name="dob" required>
+        </div>
+
+        <div class="form-group">
+          <label for="bdaymonth">Birth Month and Year:</label>
+          <input type="month" id="bdaymonth" name="bdaymonth" min="1930-01" value="2000-01">
+        </div>
+
+        <div class="form-group">
+          <label>Campus Theme Preference:</label>
+          <div class="inline-group">
+            <input type="radio" id="light" name="theme" value="Light" checked>
+            <label for="light">Light</label>
+            <input type="radio" id="dark" name="theme" value="Dark">
+            <label for="dark">Dark</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Campus Pet Preferences (Optional):</label>
+          <div class="inline-group">
+            <input type="checkbox" id="dog" name="pets" value="Dog">
+            <label for="dog">I like dogs</label>
+            <input type="checkbox" id="cat" name="pets" value="Cat">
+            <label for="cat">I like cats</label>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Section 3: Contact Details -->
+      <fieldset>
+        <legend>Contact Information</legend>
+
+        <div class="form-group">
+          <label for="email">Email Address:</label>
+          <input type="email" id="email" name="email" placeholder="example@domain.com" required>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone Number (with country code):</label>
+          <input type="tel" id="phone" name="phone" pattern="[+]{1}[0-9]{11,14}" placeholder="+2348000000000">
+        </div>
+
+        <div class="form-group">
+          <label for="homepage">Personal Website / Portfolio URL:</label>
+          <input type="url" id="homepage" name="homepage" placeholder="https://yourwebsite.com">
+        </div>
+      </fieldset>
+
+      <!-- Section 4: Schedule & Appointment Details -->
+      <fieldset>
+        <legend>Interview & Orientation Scheduling</legend>
+
+        <div class="form-group">
+          <label for="week">Preferred Interview Week:</label>
+          <input type="week" id="week" name="week">
+        </div>
+
+        <div class="form-group">
+          <label for="birthdaytime">Preferred Campus Tour (Date and Time):</label>
+          <input type="datetime-local" id="birthdaytime" name="birthdaytime">
+        </div>
+
+        <div class="form-group">
+          <label for="appt">Select Interview Time Slot:</label>
+          <input type="time" id="appt" name="appt">
+        </div>
+      </fieldset>
+
+      <!-- Section 5: Academic Preferences & Documents -->
+      <fieldset>
+        <legend>Application Documents & Preferences</legend>
+
+        <div class="form-group">
+          <label for="quantity">Number of Recommended References (1 to 5):</label>
+          <input type="number" id="quantity" name="quantity" min="1" max="5" value="1">
+        </div>
+
+        <div class="form-group">
+          <label for="volume">Campus Housing Priority Level (0 = Low, 10 = High):</label>
+          <input type="range" id="volume" name="volume" min="0" max="10" value="5">
+        </div>
+
+        <div class="form-group">
+          <label for="myfile">Upload Transcript / Passport Photo:</label>
+          <input type="file" id="myfile" name="myfile">
+        </div>
+      </fieldset>
+
+      <!-- Interactive Buttons -->
+      <div class="actions">
+        <!-- Javascript interactive triggers -->
+        <input type="button" value="Need Assistance?" onclick="msg()" />
+
+        <button type="button" class="info-btn" onclick="alert('Are you sure you want to continue?')">
+          Read Application Guidelines
+        </button>
+
+        <!-- Form Reset -->
+        <input type="reset" value="Clear Form">
+
+        <!-- Form Submission Inputs -->
+        <input type="submit" value="Submit Application" />
+
+        <!-- Image Submit Button -->
+        <input type="image" src="submit_img.png" alt="Submit" width="48" height="48" title="Click to Submit">
+      </div>
+
+    </form>
+  </div>
+
+  <script>
+    function msg() {
+      alert("Welcome to YSXL University Admissions Support. Please fill in all required fields before submitting.");
+    }
+  </script>
+</body>
+</html>

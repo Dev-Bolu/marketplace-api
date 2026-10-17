@@ -114,6 +114,30 @@ class CartItemSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["cart", "created_at", "updated_at"]
 
+    def validate(self, attrs):
+        # Fallback to existing instance values during partial updates (PATCH)
+        product = attrs.get(
+            "product", 
+            self.instance.product if self.instance else None
+        )
+        quantity = attrs.get(
+            "quantity", 
+            self.instance.quantity if self.instance else None
+        )
+
+        if product is not None:
+            if not product.is_active:
+                raise serializers.ValidationError(
+                    {"product": "This product is not available."}
+                )
+
+            if quantity is not None and quantity > product.stock:
+                raise serializers.ValidationError(
+                    {"quantity": "Requested quantity exceeds available stock."}
+                )
+
+        return attrs
+
 
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
@@ -150,4 +174,10 @@ class OrderSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
             "updated_at",
-        ]  
+        ]
+
+
+
+
+
+        

@@ -1,3 +1,4 @@
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -346,7 +347,7 @@ class CartView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        cart, created = Cart.objects.get_or_create(
+        cart,_ = Cart.objects.get_or_create(
             user=request.user
         )
 
@@ -357,14 +358,91 @@ class CartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        cart, created = Cart.objects.get_or_create(
-            user=request.user
-        )
+        # 1) The cart always comes from the logged-in user, never from the body
+        cart, _ = Cart.objects.get_or_create(user=request.user)
 
+        # 2) Validate the incoming {product, quantity}
         serializer = CartItemSerializer(data=request.data)
 
         if serializer.is_valid():
-            serializer.save(cart=cart)
-            return Response(serializer.data, status=201)
+            product = serializer.validated_data["product"]
+            quantity = serializer.validated_data["quantity"]
+
+            # 3) Find the existing row, or create it with the requested quantity
+            cart_item, created = CartItem.objects.get_or_create(
+                cart=cart,
+                product=product,
+                defaults={"quantity": quantity},
+            )
+
+            # 4) If it already existed, increment instead of duplicating
+            if not created:
+                new_quantity = cart_item.quantity + quantity
+
+                # the serializer only checked `quantity`, not the combined total
+                if new_quantity > product.stock:
+                    return Response(
+                        {"detail": "Requested quantity exceeds available stock."},
+                        status=400,
+                    )
+
+                cart_item.quantity = new_quantity
+                cart_item.save()
+
+            # 5) Return the resulting row
+            return Response(
+                CartItemSerializer(cart_item).data,
+                status=201 if created else 200,
+            )
 
         return Response(serializer.errors, status=400)
+
+class CartItemDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        cart_item = get_object_or_404(
+            CartItem,
+            pk=pk,
+            cart__user=request.user
+        )
+        serializer = CartItemSerializer(cart_item)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        cart_item = get_object_or_404(
+            CartItem,
+            pk=pk,
+            cart__user=request.user
+        )
+
+        serializer = CartItemSerializer(
+            cart_item,
+            data=request.data,
+            partial=True
+        )
+
+        if serializer.is_valid():
+            # get the incoming quantity if provided, else keep existing
+            new_qty = serializer.validated_data.get("quantity", cart_item.quantity)
+
+            # stock check using cart_item.product.stock
+            if new_qty > cart_item.product.stock:
+                return Response(
+                    {"detail": "Requested quantity exceeds available stock."},
+                    status=400
+                )
+
+            serializer.save()
+            return Response(serializer.data)
+
+        return Response(serializer.errors, status=400)
+    def delete(self, request, pk):
+        cart_item = get_object_or_404(
+            CartItem,
+            pk=pk,
+            cart__user=request.user
+        )
+        cart_item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
