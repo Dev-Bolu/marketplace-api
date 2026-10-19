@@ -109,6 +109,13 @@ class ProductSerializer(serializers.ModelSerializer):
         return value
 
 class CartItemSerializer(serializers.ModelSerializer):
+    subtotal = serializers.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        read_only=True,
+        coerce_to_string=True,
+    )
+
     class Meta:
         model = CartItem
         fields = "__all__"
@@ -140,13 +147,23 @@ class CartItemSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
-    items = CartItemSerializer(many=True, read_only=True)
+  items = CartItemSerializer(many=True, read_only=True)
+  total_price = serializers.DecimalField(
+      max_digits=20, decimal_places=2, read_only=True
+  )
 
-    class Meta:
-        model = Cart
-        fields = "__all__"
-        read_only_fields = ["user", "created_at", "updated_at"]
+  class Meta:
+    model = Cart
 
+    fields = [
+        "id",
+        "user",
+        "items",
+        "total_price",
+        "created_at",
+        "updated_at",
+    ]
+    read_only_fields = ["user", "created_at", "updated_at"]
 
 class OrderItemSerializer(serializers.ModelSerializer):
     subtotal = serializers.ReadOnlyField()
@@ -175,9 +192,3 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-
-
-
-
-
-        
