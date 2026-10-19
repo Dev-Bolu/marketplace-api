@@ -99,8 +99,17 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    @property
+    def total_price(self):
+        return sum(
+            (item.subtotal for item in self.items.all()),
+            Decimal("0.00")
+            )
+
     def __str__(self):
         return f"Cart of {self.user.username}"
+        
+        
     
 class CartItem(models.Model):   
     cart = models.ForeignKey(
@@ -124,6 +133,10 @@ class CartItem(models.Model):
             )
         ]
     
+    @property
+    def subtotal(self):
+        return self.quantity * self.product.price
+
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
     
