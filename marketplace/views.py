@@ -358,44 +358,52 @@ class CartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # 1) The cart always comes from the logged-in user, never from the body
+        # Validate input before making database changes.
+        input_serializer = CartItemSerializer(data=request.data)
+
+        if not input_serializer.is_valid():
+            return Response(
+                input_serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        product = input_serializer.validated_data["product"]
+        quantity = input_serializer.validated_data["quantity"]
+
+        # Create the cart only after the input has passed validation.
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
-        # 2) Validate the incoming {product, quantity}
-        serializer = CartItemSerializer(data=request.data)
+        cart_item, created = CartItem.objects.get_or_create(
+            cart=cart,
+            product=product,
+            defaults={"quantity": quantity},
+        )
 
-        if serializer.is_valid():
-            product = serializer.validated_data["product"]
-            quantity = serializer.validated_data["quantity"]
+        if created:
+            response_status = status.HTTP_201_CREATED
+        else:
+            new_quantity = cart_item.quantity + quantity
 
-            # 3) Find the existing row, or create it with the requested quantity
-            cart_item, created = CartItem.objects.get_or_create(
-                cart=cart,
-                product=product,
-                defaults={"quantity": quantity},
-            )
+            if new_quantity > product.stock:
+                return Response(
+                    {
+                        "detail":
+                        "Requested quantity exceeds available stock."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-            # 4) If it already existed, increment instead of duplicating
-            if not created:
-                new_quantity = cart_item.quantity + quantity
+            cart_item.quantity = new_quantity
+            cart_item.save()
 
-                # the serializer only checked `quantity`, not the combined total
-                if new_quantity > product.stock:
-                    return Response(
-                        {"detail": "Requested quantity exceeds available stock."},
-                        status=400,
-                    )
+            response_status = status.HTTP_200_OK
 
-                cart_item.quantity = new_quantity
-                cart_item.save()
+        output_serializer = CartItemSerializer(cart_item)
 
-            # 5) Return the resulting row
-            return Response(
-                CartItemSerializer(cart_item).data,
-                status=201 if created else 200,
-            )
-
-        return Response(serializer.errors, status=400)
+        return Response(
+            output_serializer.data,
+            status=response_status,
+        )
 
 class CartItemDetailView(APIView):
     permission_classes = [IsAuthenticated]

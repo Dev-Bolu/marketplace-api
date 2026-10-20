@@ -1,0 +1,894 @@
+[1mdiff --git a/config/settings.py b/config/settings.py[m
+[1mindex 61a66ab..2d6692b 100644[m
+[1m--- a/config/settings.py[m
+[1m+++ b/config/settings.py[m
+[36m@@ -136,6 +136,6 @@[m [mMAILERS = {[m
+ REST_FRAMEWORK = {[m
+     "DEFAULT_AUTHENTICATION_CLASSES": [[m
+         "rest_framework_simplejwt.authentication.JWTAuthentication",[m
+[31m-        [m
+     ],[m
+[32m+[m[41m    [m
+ }[m
+[1mdiff --git a/marketplace/tests.py b/marketplace/tests.py[m
+[1mindex 7ce503c..e600a76 100644[m
+[1m--- a/marketplace/tests.py[m
+[1m+++ b/marketplace/tests.py[m
+[36m@@ -1,3 +1,770 @@[m
+[31m-from django.test import TestCase[m
+ [m
+[31m-# Create your tests here.[m
+[32m+[m[32mfrom decimal import Decimal[m
+[32m+[m
+[32m+[m[32mfrom django.contrib.auth.models import User[m
+[32m+[m[32mfrom django.urls import reverse[m
+[32m+[m[32mfrom rest_framework import status[m
+[32m+[m[32mfrom rest_framework.test import APITestCase[m
+[32m+[m
+[32m+[m[32mfrom .models import Cart, CartItem, Product, SellerProfile, Store[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass CartViewTests(APITestCase):[m
+[32m+[m
+[32m+[m[32m    def setUp(self):[m
+[32m+[m[32m        # No password hashing is needed because these tests use[m
+[32m+[m[32m        # force_authenticate() rather than logging in.[m
+[32m+[m[32m        self.user = User.objects.create_user([m
+[32m+[m[32m            username="cartuser",[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.url = reverse("cart")[m
+[32m+[m
+[32m+[m[32m    def test_get_creates_empty_cart_for_authenticated_user(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.user)[m
+[32m+[m
+[32m+[m[32m        self.assertFalse([m
+[32m+[m[32m            Cart.objects.filter(user=self.user).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_200_OK,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertTrue([m
+[32m+[m[32m            Cart.objects.filter(user=self.user).exists()[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual(response.data["items"], [])[m
+[32m+[m[32m        self.assertEqual(response.data["total_price"], "0.00")[m
+[32m+[m
+[32m+[m[32m    def test_get_reuses_existing_cart(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.user)[m
+[32m+[m
+[32m+[m[32m        first_response = self.client.get(self.url)[m
+[32m+[m[32m        second_response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            first_response.status_code,[m
+[32m+[m[32m            status.HTTP_200_OK,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            second_response.status_code,[m
+[32m+[m[32m            status.HTTP_200_OK,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            Cart.objects.filter(user=self.user).count(),[m
+[32m+[m[32m            1,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            first_response.data["id"],[m
+[32m+[m[32m            second_response.data["id"],[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_get_cart_requires_authentication(self):[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual(Cart.objects.count(), 0)[m
+[32m+[m
+[32m+[m[32m    def test_user_only_sees_their_own_cart(self):[m
+[32m+[m[32m        other_user = User.objects.create_user([m
+[32m+[m[32m            username="otheruser",[m
+[32m+[m[32m        )[m
+[32m+[m[32m        other_cart = Cart.objects.create(user=other_user)[m
+[32m+[m
+[32m+[m[32m        self.client.force_authenticate(user=self.user)[m
+[32m+[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_200_OK,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertNotEqual([m
+[32m+[m[32m            response.data["id"],[m
+[32m+[m[32m            other_cart.id,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.data["user"],[m
+[32m+[m[32m            self.user.id,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual(Cart.objects.count(), 2)[m
+[32m+[m[41m    [m
+[32m+[m[32m    def test_cart_response_includes_total_price_for_multiple_items(self):[m
+[32m+[m[32m        # 1. Create a seller user, seller profile, and store[m
+[32m+[m[32m        seller_user = User.objects.create_user(username="seller")[m
+[32m+[m[32m        seller_profile = SellerProfile.objects.create([m
+[32m+[m[32m            user=seller_user,[m
+[32m+[m[32m            business_name="Test Seller",[m
+[32m+[m[32m        )[m
+[32m+[m[32m        store = Store.objects.create([m
+[32m+[m[32m            seller=seller_profile,[m
+[32m+[m[32m            store_name="Test Store",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 2. Create two products with specified prices[m
+[32m+[m[32m        product_a = Product.objects.create([m
+[32m+[m[32m            store=store,[m
+[32m+[m[32m            name="Product A",[m
+[32m+[m[32m            price=Decimal("100.00"),[m
+[32m+[m[32m            stock=10,[m
+[32m+[m[32m            is_active=True,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        product_b = Product.objects.create([m
+[32m+[m[32m            store=store,[m
+[32m+[m[32m            name="Product B",[m
+[32m+[m[32m            price=Decimal("50.50"),[m
+[32m+[m[32m            stock=10,[m
+[32m+[m[32m            is_active=True,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 3. Create self.user’s cart[m
+[32m+[m[32m        cart = Cart.objects.create(user=self.user)[m
+[32m+[m
+[32m+[m[32m        # 4. Add items to the cart[m
+[32m+[m[32m        CartItem.objects.create([m
+[32m+[m[32m            cart=cart,[m
+[32m+[m[32m            product=product_a,[m
+[32m+[m[32m            quantity=2,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        CartItem.objects.create([m
+[32m+[m[32m            cart=cart,[m
+[32m+[m[32m            product=product_b,[m
+[32m+[m[32m            quantity=3,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Authenticate as self.user[m
+[32m+[m[32m        self.client.force_authenticate(user=self.user)[m
+[32m+[m
+[32m+[m[32m        # 6. GET self.url[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        # 7. Assert status, item count, and aggregated total price[m
+[32m+[m[32m        self.assertEqual(response.status_code, status.HTTP_200_OK)[m
+[32m+[m[32m        self.assertEqual(len(response.data["items"]), 2)[m
+[32m+[m[32m        self.assertEqual(response.data["total_price"], "351.50")[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass CartItemViewTests(APITestCase):[m
+[32m+[m
+[32m+[m[32m    def setUp(self):[m
+[32m+[m[32m        self.buyer = User.objects.create_user([m
+[32m+[m[32m            username="buyer",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        self.seller_user = User.objects.create_user([m
+[32m+[m[32m            username="seller",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        self.seller_profile = SellerProfile.objects.create([m
+[32m+[m[32m            user=self.seller_user,[m
+[32m+[m[32m            business_name="Test Seller",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        self.store = Store.objects.create([m
+[32m+[m[32m            seller=self.seller_profile,[m
+[32m+[m[32m            store_name="Test Store",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        self.product = Product.objects.create([m
+[32m+[m[32m            store=self.store,[m
+[32m+[m[32m            name="Test Product",[m
+[32m+[m[32m            price=Decimal("100.00"),[m
+[32m+[m[32m            stock=5,[m
+[32m+[m[32m            is_active=True,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        self.url = reverse("cart-item-add")[m
+[32m+[m
+[32m+[m[32m    def _add(self, product_id=None, quantity=1):[m
+[32m+[m[32m        if product_id is None:[m
+[32m+[m[32m            product_id = self.product.id[m
+[32m+[m
+[32m+[m[32m        return self.client.post([m
+[32m+[m[32m            self.url,[m
+[32m+[m[32m            data={[m
+[32m+[m[32m                "product": product_id,[m
+[32m+[m[32m                "quantity": quantity,[m
+[32m+[m[32m            },[m
+[32m+[m[32m            format="json",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_authenticated_user_can_add_product_to_cart(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        self.assertFalse([m
+[32m+[m[32m            Cart.objects.filter(user=self.buyer).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        response = self._add(quantity=2)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_201_CREATED,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        cart = Cart.objects.get(user=self.buyer)[m
+[32m+[m[32m        cart_item = CartItem.objects.get([m
+[32m+[m[32m            cart=cart,[m
+[32m+[m[32m            product=self.product,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        self.assertEqual(Cart.objects.count(), 1)[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 1)[m
+[32m+[m[32m        self.assertEqual(cart_item.quantity, 2)[m
+[32m+[m[32m        self.assertEqual(response.data["id"], cart_item.id)[m
+[32m+[m[32m        self.assertEqual(response.data["quantity"], 2)[m
+[32m+[m
+[32m+[m[32m    def test_add_to_cart_requires_authentication(self):[m
+[32m+[m[32m        response = self._add()[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual(Cart.objects.count(), 0)[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 0)[m
+[32m+[m
+[32m+[m[32m    def test_cannot_add_more_than_available_stock(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        response = self._add(quantity=6)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertIn("quantity", response.data)[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 0)[m
+[32m+[m
+[32m+[m[32m    def test_cannot_add_inactive_product(self):[m
+[32m+[m[32m        self.product.is_active = False[m
+[32m+[m[32m        self.product.save()[m
+[32m+[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        response = self._add()[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertIn("product", response.data)[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 0)[m
+[32m+[m
+[32m+[m[32m    def test_cannot_add_nonexistent_product(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        response = self._add(product_id=999999)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertIn("product", response.data)[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 0)[m
+[32m+[m
+[32m+[m[32m    def test_cannot_add_zero_or_negative_quantity(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        for quantity in (0, -1):[m
+[32m+[m[32m            with self.subTest(quantity=quantity):[m
+[32m+[m[32m                response = self._add(quantity=quantity)[m
+[32m+[m
+[32m+[m[32m                self.assertEqual([m
+[32m+[m[32m                    response.status_code,[m
+[32m+[m[32m                    status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m                )[m
+[32m+[m[32m                self.assertIn("quantity", response.data)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 0)[m
+[32m+[m
+[32m+[m[32m    def test_adding_same_product_twice_increments_existing_item(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        first_response = self._add(quantity=1)[m
+[32m+[m[32m        second_response = self._add(quantity=1)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            first_response.status_code,[m
+[32m+[m[32m            status.HTTP_201_CREATED,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            second_response.status_code,[m
+[32m+[m[32m            status.HTTP_200_OK,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        items = CartItem.objects.filter([m
+[32m+[m[32m            cart__user=self.buyer,[m
+[32m+[m[32m            product=self.product,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        self.assertEqual(items.count(), 1)[m
+[32m+[m
+[32m+[m[32m        cart_item = items.get()[m
+[32m+[m
+[32m+[m[32m        self.assertEqual(cart_item.quantity, 2)[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            first_response.data["id"],[m
+[32m+[m[32m            second_response.data["id"],[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            second_response.data["quantity"],[m
+[32m+[m[32m            2,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_repeat_add_does_not_exceed_available_stock(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        first_response = self._add(quantity=3)[m
+[32m+[m[32m        second_response = self._add(quantity=3)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            first_response.status_code,[m
+[32m+[m[32m            status.HTTP_201_CREATED,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            second_response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertIn("detail", second_response.data)[m
+[32m+[m
+[32m+[m[32m        cart_item = CartItem.objects.get([m
+[32m+[m[32m            cart__user=self.buyer,[m
+[32m+[m[32m            product=self.product,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 1)[m
+[32m+[m[32m        self.assertEqual(cart_item.quantity, 3)[m
+[32m+[m[32m        self.assertLessEqual([m
+[32m+[m[32m            cart_item.quantity,[m
+[32m+[m[32m            self.product.stock,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_cannot_add_more_than_available_stock(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # Precondition: Buyer has no cart yet[m
+[32m+[m[32m        self.assertFalse([m
+[32m+[m[32m            Cart.objects.filter(user=self.buyer).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        response = self._add(quantity=6)  # stock is 5[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertIn("quantity", response.data)[m
+[32m+[m[41m        [m
+[32m+[m[32m        # Postconditions: No cart-items AND no empty cart should be created[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 0)[m
+[32m+[m[32m        self.assertFalse([m
+[32m+[m[32m            Cart.objects.filter(user=self.buyer).exists()[m
+[32m+[m[32m        )[m
+[32m+[m[41m    [m
+[32m+[m
+[32m+[m[32mclass CartItemDetailViewTests(APITestCase):[m
+[32m+[m
+[32m+[m[32m    def setUp(self):[m
+[32m+[m[32m        # 1. Create a buyer (no password hashing overhead)[m
+[32m+[m[32m        self.buyer = User.objects.create_user(username="buyer")[m
+[32m+[m
+[32m+[m[32m        # 2. Create a seller user (no password hashing overhead)[m
+[32m+[m[32m        self.seller_user = User.objects.create_user(username="seller")[m
+[32m+[m
+[32m+[m[32m        # 3. Create a seller profile[m
+[32m+[m[32m        self.seller_profile = SellerProfile.objects.create([m
+[32m+[m[32m            user=self.seller_user,[m
+[32m+[m[32m            business_name="Test Seller",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Create a store[m
+[32m+[m[32m        self.store = Store.objects.create([m
+[32m+[m[32m            seller=self.seller_profile,[m
+[32m+[m[32m            store_name="Test Store",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Create a product[m
+[32m+[m[32m        self.product = Product.objects.create([m
+[32m+[m[32m            store=self.store,[m
+[32m+[m[32m            name="Test Product",[m
+[32m+[m[32m            price=Decimal("100.00"),[m
+[32m+[m[32m            stock=5,[m
+[32m+[m[32m            is_active=True,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 6. Create the buyer's cart[m
+[32m+[m[32m        self.cart = Cart.objects.create(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # 7. Create a cart item with quantity 2[m
+[32m+[m[32m        self.cart_item = CartItem.objects.create([m
+[32m+[m[32m            cart=self.cart,[m
+[32m+[m[32m            product=self.product,[m
+[32m+[m[32m            quantity=2,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 8. Build self.url using reverse() with the cart-item primary key[m
+[32m+[m[32m        self.url = reverse([m
+[32m+[m[32m            "cart-item-detail",[m
+[32m+[m[32m            kwargs={"pk": self.cart_item.pk},[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_owner_can_retrieve_cart_item(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_200_OK,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.data["id"],[m
+[32m+[m[32m            self.cart_item.id,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.data["quantity"],[m
+[32m+[m[32m            2,[m
+[32m+[m[32m        )[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.data["product"],[m
+[32m+[m[32m            self.product.id,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_other_user_cannot_retrieve_cart_item(self):[m
+[32m+[m[32m        # 1. Create another user without a password[m
+[32m+[m[32m        other_user = User.objects.create_user(username="otherbuyer")[m
+[32m+[m
+[32m+[m[32m        # 2. Authenticate as that user[m
+[32m+[m[32m        self.client.force_authenticate(user=other_user)[m
+[32m+[m
+[32m+[m[32m        # 3. GET self.url[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        # 4. Assert 404 Not Found[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_404_NOT_FOUND,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Assert the cart item still exists afterward[m
+[32m+[m[32m        self.assertTrue([m
+[32m+[m[32m            CartItem.objects.filter(pk=self.cart_item.pk).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_owner_can_update_cart_item_quantity(self):[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        response = self.client.patch([m
+[32m+[m[32m            self.url,[m
+[32m+[m[32m            data={"quantity": 4},[m
+[32m+[m[32m            format="json",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # Assert the response status is 200.[m
+[32m+[m
+[32m+[m[32m        # Assert the response quantity is 4.[m
+[32m+[m
+[32m+[m[32m        self.cart_item.refresh_from_db()[m
+[32m+[m
+[32m+[m[32m        # Assert the database quantity is now 4.[m
+[32m+[m
+[32m+[m[32m        # Assert there is still exactly one CartItem.[m
+[32m+[m
+[32m+[m[32m    def test_cannot_update_quantity_above_product_stock(self):[m
+[32m+[m[32m        # 1. Authenticate as self.buyer[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # 2. PATCH self.url with quantity 6[m
+[32m+[m[32m        response = self.client.patch([m
+[32m+[m[32m            self.url,[m
+[32m+[m[32m            data={"quantity": 6},[m
+[32m+[m[32m            format="json",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 3. Assert 400 Bad Request[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert "quantity" exists in response.data[m
+[32m+[m[32m        self.assertIn("quantity", response.data)[m
+[32m+[m
+[32m+[m[32m        # 5. Refresh self.cart_item from the database[m
+[32m+[m[32m        self.cart_item.refresh_from_db()[m
+[32m+[m
+[32m+[m[32m        # 6. Assert its quantity remains 2[m
+[32m+[m[32m        self.assertEqual(self.cart_item.quantity, 2)[m
+[32m+[m
+[32m+[m[32m        # 7. Assert only one CartItem exists[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 1)[m
+[32m+[m
+[32m+[m[32m    def test_other_user_cannot_update_cart_item(self):[m
+[32m+[m[32m        # 1. Create another user without a password[m
+[32m+[m[32m        other_user = User.objects.create_user(username="otherbuyer")[m
+[32m+[m
+[32m+[m[32m        # 2. Authenticate as that user[m
+[32m+[m[32m        self.client.force_authenticate(user=other_user)[m
+[32m+[m
+[32m+[m[32m        # 3. PATCH self.url with the otherwise-valid quantity 4[m
+[32m+[m[32m        response = self.client.patch([m
+[32m+[m[32m            self.url,[m
+[32m+[m[32m            data={"quantity": 4},[m
+[32m+[m[32m            format="json",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert 404 Not Found[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_404_NOT_FOUND,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Refresh self.cart_item from the database[m
+[32m+[m[32m        self.cart_item.refresh_from_db()[m
+[32m+[m
+[32m+[m[32m        # 6. Assert its quantity is still 2[m
+[32m+[m[32m        self.assertEqual(self.cart_item.quantity, 2)[m
+[32m+[m
+[32m+[m[32m        # 7. Assert the item still exists[m
+[32m+[m[32m        self.assertTrue([m
+[32m+[m[32m            CartItem.objects.filter(pk=self.cart_item.pk).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_cannot_update_cart_item_product(self):[m
+[32m+[m[32m        # 1. Create a second active product in self.store[m
+[32m+[m[32m        other_product = Product.objects.create([m
+[32m+[m[32m            store=self.store,[m
+[32m+[m[32m            name="Other Product",[m
+[32m+[m[32m            price=Decimal("50.00"),[m
+[32m+[m[32m            stock=10,[m
+[32m+[m[32m            is_active=True,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 2. Authenticate as self.buyer[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # 3. PATCH self.url with the second product’s ID[m
+[32m+[m[32m        response = self.client.patch([m
+[32m+[m[32m            self.url,[m
+[32m+[m[32m            data={"product": other_product.id},[m
+[32m+[m[32m            format="json",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert 400 Bad Request[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Assert "detail" is in the response[m
+[32m+[m[32m        self.assertIn("detail", response.data)[m
+[32m+[m
+[32m+[m[32m        # 6. Refresh self.cart_item[m
+[32m+[m[32m        self.cart_item.refresh_from_db()[m
+[32m+[m
+[32m+[m[32m        # 7. Assert its product_id is still self.product.id[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            self.cart_item.product_id,[m
+[32m+[m[32m            self.product.id,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 8. Assert there is still only one cart item[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 1)[m
+[32m+[m
+[32m+[m[32m    def test_cannot_update_cart_item_product(self):[m
+[32m+[m[32m        # 1. Create a second active product in self.store[m
+[32m+[m[32m        other_product = Product.objects.create([m
+[32m+[m[32m            store=self.store,[m
+[32m+[m[32m            name="Other Product",[m
+[32m+[m[32m            price=Decimal("50.00"),[m
+[32m+[m[32m            stock=10,[m
+[32m+[m[32m            is_active=True,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 2. Authenticate as self.buyer[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # 3. PATCH self.url with the second product’s ID[m
+[32m+[m[32m        response = self.client.patch([m
+[32m+[m[32m            self.url,[m
+[32m+[m[32m            data={"product": other_product.id},[m
+[32m+[m[32m            format="json",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert 400 Bad Request[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Assert the exact error message guards the allowed-field rule[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.data["detail"],[m
+[32m+[m[32m            "Only the 'quantity' field can be updated.",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 6. Refresh self.cart_item[m
+[32m+[m[32m        self.cart_item.refresh_from_db()[m
+[32m+[m
+[32m+[m[32m        # 7. Assert its product_id is still self.product.id[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            self.cart_item.product_id,[m
+[32m+[m[32m            self.product.id,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 8. Assert there is still only one cart item[m
+[32m+[m[32m        self.assertEqual(CartItem.objects.count(), 1)[m
+[32m+[m
+[32m+[m[32m    def test_empty_patch_is_rejected_without_modifying_item(self):[m
+[32m+[m[32m        # 1. Store the original timestamp[m
+[32m+[m[32m        original_updated_at = self.cart_item.updated_at[m
+[32m+[m
+[32m+[m[32m        # 2. Authenticate as self.buyer[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # 3. PATCH self.url with an empty dictionary[m
+[32m+[m[32m        response = self.client.patch([m
+[32m+[m[32m            self.url,[m
+[32m+[m[32m            data={},[m
+[32m+[m[32m            format="json",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert 400 Bad Request[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Assert the response flags the missing quantity field[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.data,[m
+[32m+[m[32m            {"quantity": ["This field is required."]},[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 6. Refresh the item from the database[m
+[32m+[m[32m        self.cart_item.refresh_from_db()[m
+[32m+[m
+[32m+[m[32m        # 7. Assert quantity remains 2[m
+[32m+[m[32m        self.assertEqual(self.cart_item.quantity, 2)[m
+[32m+[m
+[32m+[m[32m        # 8. Assert updated_at still equals original_updated_at[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            self.cart_item.updated_at,[m
+[32m+[m[32m            original_updated_at,[m
+[32m+[m[32m        )[m
+[32m+[m[41m    [m
+[32m+[m[32m    def test_owner_can_delete_cart_item(self):[m
+[32m+[m[32m        # 1. Authenticate as self.buyer[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # 2. DELETE self.url[m
+[32m+[m[32m        response = self.client.delete(self.url)[m
+[32m+[m
+[32m+[m[32m        # 3. Assert 204 No Content[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_204_NO_CONTENT,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert the cart item no longer exists[m
+[32m+[m[32m        self.assertFalse([m
+[32m+[m[32m            CartItem.objects.filter(pk=self.cart_item.pk).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Assert the buyer’s cart still exists[m
+[32m+[m[32m        self.assertTrue([m
+[32m+[m[32m            Cart.objects.filter(user=self.buyer).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 6. Assert the product still exists[m
+[32m+[m[32m        self.assertTrue([m
+[32m+[m[32m            Product.objects.filter(pk=self.product.pk).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_other_user_cannot_delete_cart_item(self):[m
+[32m+[m[32m        # 1. Create another user without a password[m
+[32m+[m[32m        other_user = User.objects.create_user(username="otherbuyer")[m
+[32m+[m
+[32m+[m[32m        # 2. Authenticate as that user[m
+[32m+[m[32m        self.client.force_authenticate(user=other_user)[m
+[32m+[m
+[32m+[m[32m        # 3. DELETE self.url[m
+[32m+[m[32m        response = self.client.delete(self.url)[m
+[32m+[m
+[32m+[m[32m        # 4. Assert 404 Not Found[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_404_NOT_FOUND,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 5. Assert the cart item still exists[m
+[32m+[m[32m        self.assertTrue([m
+[32m+[m[32m            CartItem.objects.filter(pk=self.cart_item.pk).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 6. Refresh the item and assert its quantity is still 2[m
+[32m+[m[32m        self.cart_item.refresh_from_db()[m
+[32m+[m[32m        self.assertEqual(self.cart_item.quantity, 2)[m
+[32m+[m
+[32m+[m[32m    def test_cart_item_detail_requires_authentication(self):[m
+[32m+[m[32m        # 1. Do not call force_authenticate() to keep the request anonymous[m
+[32m+[m
+[32m+[m[32m        # 2. GET self.url[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        # 3. Assert 401 Unauthorized[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_401_UNAUTHORIZED,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert the cart item still exists[m
+[32m+[m[32m        self.assertTrue([m
+[32m+[m[32m            CartItem.objects.filter(pk=self.cart_item.pk).exists()[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_cart_item_response_includes_correct_subtotal(self):[m
+[32m+[m[32m        # 1. Authenticate as self.buyer[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # 2. GET self.url[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        # 3. Assert 200 OK[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_200_OK,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert subtotal matches the expected formatted decimal string[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.data["subtotal"],[m
+[32m+[m[32m            "200.00",[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def test_cart_item_response_includes_correct_subtotal(self):[m
+[32m+[m[32m        # 1. Authenticate as self.buyer[m
+[32m+[m[32m        self.client.force_authenticate(user=self.buyer)[m
+[32m+[m
+[32m+[m[32m        # 2. GET self.url[m
+[32m+[m[32m        response = self.client.get(self.url)[m
+[32m+[m
+[32m+[m[32m        # 3. Assert 200 OK[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.status_code,[m
+[32m+[m[32m            status.HTTP_200_OK,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        # 4. Assert subtotal matches the expected formatted decimal string[m
+[32m+[m[32m        self.assertEqual([m
+[32m+[m[32m            response.data["subtotal"],[m
+[32m+[m[32m            "200.00",[m
+[32m+[m[32m        )[m
+[41m+[m
+[41m+    [m
+\ No newline at end of file[m
+[1mdiff --git a/marketplace/urls.py b/marketplace/urls.py[m
+[1mindex af6c3be..e26393b 100644[m
+[1m--- a/marketplace/urls.py[m
+[1m+++ b/marketplace/urls.py[m
+[36m@@ -50,8 +50,10 @@[m [murlpatterns = [[m
+     name="cart",),[m
+     path("cart/items/", views.CartItemView.as_view(),[m
+     name="cart-item",),[m
+[32m+[m[32m    path("cart/items/",views.CartItemView.as_view(),[m
+[32m+[m[32m    name="cart-item-add"),[m
+     path("cart/items/<int:pk>/", views.CartItemDetailView.as_view(),[m
+[31m-    name="cart-item-detail",),[m
+[32m+[m[32m    name="cart-item-detail"),[m
+ [m
+     [m
+     ][m
+\ No newline at end of file[m
+[1mdiff --git a/marketplace/views.py b/marketplace/views.py[m
+[1mindex 81d3de4..88e2148 100644[m
+[1m--- a/marketplace/views.py[m
+[1m+++ b/marketplace/views.py[m
+[36m@@ -358,44 +358,52 @@[m [mclass CartItemView(APIView):[m
+     permission_classes = [IsAuthenticated][m
+ [m
+     def post(self, request):[m
+[31m-        # 1) The cart always comes from the logged-in user, never from the body[m
+[32m+[m[32m        # Validate input before making database changes.[m
+[32m+[m[32m        input_serializer = CartItemSerializer(data=request.data)[m
+[32m+[m
+[32m+[m[32m        if not input_serializer.is_valid():[m
+[32m+[m[32m            return Response([m
+[32m+[m[32m                input_serializer.errors,[m
+[32m+[m[32m                status=status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m            )[m
+[32m+[m
+[32m+[m[32m        product = input_serializer.validated_data["product"][m
+[32m+[m[32m        quantity = input_serializer.validated_data["quantity"][m
+[32m+[m
+[32m+[m[32m        # Create the cart only after the input has passed validation.[m
+         cart, _ = Cart.objects.get_or_create(user=request.user)[m
+ [m
+[31m-        # 2) Validate the incoming {product, quantity}[m
+[31m-        serializer = CartItemSerializer(data=request.data)[m
+[32m+[m[32m        cart_item, created = CartItem.objects.get_or_create([m
+[32m+[m[32m            cart=cart,[m
+[32m+[m[32m            product=product,[m
+[32m+[m[32m            defaults={"quantity": quantity},[m
+[32m+[m[32m        )[m
+ [m
+[31m-        if serializer.is_valid():[m
+[31m-            product = serializer.validated_data["product"][m
+[31m-            quantity = serializer.validated_data["quantity"][m
+[31m-[m
+[31m-            # 3) Find the existing row, or create it with the requested quantity[m
+[31m-            cart_item, created = CartItem.objects.get_or_create([m
+[31m-                cart=cart,[m
+[31m-                product=product,[m
+[31m-                defaults={"quantity": quantity},[m
+[31m-            )[m
+[32m+[m[32m        if created:[m
+[32m+[m[32m            response_status = status.HTTP_201_CREATED[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            new_quantity = cart_item.quantity + quantity[m
+ [m
+[31m-            # 4) If it already existed, increment instead of duplicating[m
+[31m-            if not created:[m
+[31m-                new_quantity = cart_item.quantity + quantity[m
+[32m+[m[32m            if new_quantity > product.stock:[m
+[32m+[m[32m                return Response([m
+[32m+[m[32m                    {[m
+[32m+[m[32m                        "detail":[m
+[32m+[m[32m                        "Requested quantity exceeds available stock."[m
+[32m+[m[32m                    },[m
+[32m+[m[32m                    status=status.HTTP_400_BAD_REQUEST,[m
+[32m+[m[32m                )[m
+ [m
+[31m-                # the serializer only checked `quantity`, not the combined total[m
+[31m-                if new_quantity > product.stock:[m
+[31m-                    return Response([m
+[31m-                        {"detail": "Requested quantity exceeds available stock."},[m
+[31m-                        status=400,[m
+[31m-                    )[m
+[32m+[m[32m            cart_item.quantity = new_quantity[m
+[32m+[m[32m            cart_item.save()[m
+ [m
+[31m-                cart_item.quantity = new_quantity[m
+[31m-                cart_item.save()[m
+[32m+[m[32m            response_status = status.HTTP_200_OK[m
+ [m
+[31m-            # 5) Return the resulting row[m
+[31m-            return Response([m
+[31m-                CartItemSerializer(cart_item).data,[m
+[31m-                status=201 if created else 200,[m
+[31m-            )[m
+[32m+[m[32m        output_serializer = CartItemSerializer(cart_item)[m
+ [m
+[31m-        return Response(serializer.errors, status=400)[m
+[32m+[m[32m        return Response([m
+[32m+[m[32m            output_serializer.data,[m
+[32m+[m[32m            status=response_status,[m
+[32m+[m[32m        )[m
+ [m
+ class CartItemDetailView(APIView):[m
+     permission_classes = [IsAuthenticated][m
