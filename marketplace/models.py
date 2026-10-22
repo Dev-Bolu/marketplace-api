@@ -27,6 +27,7 @@ class Store(models.Model):
     seller = models.ForeignKey(
         SellerProfile,
         on_delete=models.CASCADE,
+        related_name="stores"
     )
     store_name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -101,10 +102,8 @@ class Cart(models.Model):
     
     @property
     def total_price(self):
-        return sum(
-            (item.subtotal for item in self.items.all()),
-            Decimal("0.00")
-            )
+        return sum((item.subtotal for item in self.cart_items.all()),
+        Decimal("0.00") )
 
     def __str__(self):
         return f"Cart of {self.user.username}"
@@ -114,7 +113,7 @@ class Cart(models.Model):
 class CartItem(models.Model):   
     cart = models.ForeignKey(
         Cart,on_delete=models.CASCADE,
-        related_name="items"
+        related_name="cart_items"
     )   
     product = models.ForeignKey(
         Product,
@@ -165,17 +164,17 @@ class Order(models.Model):
     @property
     def total_price(self):
         return sum(
-            (item.subtotal for item in self.items.all()),
-            Decimal("0.00")
-            )
+        (item.subtotal for item in self.order_items.all()),
+        Decimal("0.00")
+        )
     
 class OrderItem(models.Model):
     order = models.ForeignKey(
         Order,
         on_delete=models.CASCADE,
-        related_name="items"
+        related_name="order_items"
     )
-    product = models.ForeignKey(Product,on_delete=models.PROTECT)
+    product = models.ForeignKey(Product,on_delete=models.PROTECT,related_name="order_items")
     quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -184,6 +183,9 @@ class OrderItem(models.Model):
     @property
     def subtotal(self):
         return self.quantity * self.unit_price
+    
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name} (Order #{self.order.id})"
 
 
 

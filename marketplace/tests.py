@@ -35,7 +35,7 @@ class CartViewTests(APITestCase):
         self.assertTrue(
             Cart.objects.filter(user=self.user).exists()
         )
-        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["cart_items"], [])
         self.assertEqual(response.data["total_price"], "0.00")
 
     def test_get_reuses_existing_cart(self):
@@ -145,7 +145,7 @@ class CartViewTests(APITestCase):
 
         # 7. Assert status, item count, and aggregated total price
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data["items"]), 2)
+        self.assertEqual(len(response.data["cart_items"]), 2)
         self.assertEqual(response.data["total_price"], "351.50")
 
 

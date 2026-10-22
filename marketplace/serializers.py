@@ -147,7 +147,7 @@ class CartItemSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
-  items = CartItemSerializer(many=True, read_only=True)
+  cart_items = CartItemSerializer(many=True, read_only=True)
   total_price = serializers.DecimalField(
       max_digits=20, decimal_places=2, read_only=True
   )
@@ -158,7 +158,7 @@ class CartSerializer(serializers.ModelSerializer):
     fields = [
         "id",
         "user",
-        "items",
+        "cart_items",
         "total_price",
         "created_at",
         "updated_at",
@@ -180,7 +180,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
+    order_items = OrderItemSerializer(many=True, read_only=True)
     total_price = serializers.ReadOnlyField()
 
     class Meta:
