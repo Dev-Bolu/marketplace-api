@@ -736,3 +736,26 @@ class OrderDetailView(APIView):
             serializer.data,
             status=status.HTTP_200_OK,
         )
+        
+
+
+class MySellerOrderListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get all products belonging to the authenticated seller
+        seller_products = Product.objects.filter(
+            store__seller__user=request.user
+        )
+
+        # Get all order items for those products
+        order_items = OrderItem.objects.filter(
+            product__in=seller_products
+        ).select_related("order", "product")
+
+        # Get unique orders from the order items
+        order_ids = order_items.values_list("order_id", flat=True).distinct()
+        orders = Order.objects.filter(id__in=order_ids)
+
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
