@@ -9,6 +9,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import transaction
 from .filters import ProductFilter
 from rest_framework.pagination import PageNumberPagination
+from django.db.models import Sum
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 
 
@@ -629,11 +632,107 @@ class OrderListView(APIView):
     
 class OrderDetailView(APIView):
     permission_classes = [IsAuthenticated]
+ 
     def get(self, request, pk):
         order = get_object_or_404(
             Order,
             pk=pk,
-            user=request.user
+            user=request.user,
         )
+ 
         serializer = OrderSerializer(order)
+ 
         return Response(serializer.data)
+ 
+    def patch(self, request, pk):
+        # Guard against non-dict bodies (e.g. a JSON array), which
+        # would otherwise raise AttributeError and return a 500.
+        data = request.data
+        requested_status = data.get("status") if hasattr(data, "get") else None
+ 
+        # Buyers are only allowed to request cancellation.
+        if requested_status != Order.OrderStatus.CANCELLED:
+            return Response(
+                {"detail": "Buyers can only cancel orders."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+ 
+        with transaction.atomic():
+ 
+            # Lock the order so two cancellation requests
+            # cannot process the same order simultaneously.
+            order = get_object_or_404(
+                Order.objects.select_for_update(),
+                pk=pk,
+                user=request.user,
+            )
+ 
+            # Only pending orders can be cancelled.
+            if order.status != Order.OrderStatus.PENDING:
+                return Response(
+                    {"detail": "Only pending orders can be cancelled."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+ 
+            # Total quantity ordered per product.
+            # .order_by() clears any default Meta.ordering so the
+            # GROUP BY yields exactly one row per product.
+            qty_by_product_id = dict(
+                order.order_items
+                .order_by()
+                .values("product_id")
+                .annotate(total_qty=Sum("quantity"))
+                .values_list("product_id", "total_qty")
+            )
+ 
+            now = timezone.now()
+ 
+            if qty_by_product_id:
+ 
+                # Lock all affected products in one query, ordered by pk
+                # so every code path acquires locks in the same order
+                # (reduces deadlock risk).
+                products = list(
+                    Product.objects
+                    .select_for_update()
+                    .filter(pk__in=qty_by_product_id)
+                    .order_by("pk")
+                )
+ 
+                # Defensive check in case an order references
+                # a product that no longer exists. Raising DRF's
+                # ValidationError rolls back the transaction and
+                # produces a 400 response.
+                if len(products) != len(qty_by_product_id):
+                    raise ValidationError(
+                        {"detail": "Some products in this order no longer exist."}
+                    )
+ 
+                # Restore the ordered quantities to stock.
+                for product in products:
+                    product.stock += qty_by_product_id[product.pk]
+                    # bulk_update does not trigger auto_now fields.
+                    product.updated_at = now
+ 
+                Product.objects.bulk_update(
+                    products,
+                    ["stock", "updated_at"],
+                )
+ 
+            # Finally mark the order as cancelled.
+            order.status = Order.OrderStatus.CANCELLED
+            order.updated_at = now
+ 
+            order.save(
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ]
+            )
+ 
+        serializer = OrderSerializer(order)
+ 
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
+        )

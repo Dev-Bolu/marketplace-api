@@ -1208,6 +1208,140 @@ class OrderListViewTests(APITestCase):
             order.total_price,
             Decimal("800.00"),
         )
+    
+    def test_buyer_can_cancel_pending_order_and_stock_is_restored(self):
+        seller_user = User.objects.create_user(
+            username="cancel-seller",
+        )
+
+        seller_profile = SellerProfile.objects.create(
+            user=seller_user,
+            business_name="Cancel Seller",
+        )
+
+        store = Store.objects.create(
+            seller=seller_profile,
+            store_name="Cancel Store",
+        )
+
+        product = Product.objects.create(
+            store=store,
+            name="Cancel Product",
+            price=Decimal("100.00"),
+            stock=10,
+            is_active=True,
+        )
+
+        cart = Cart.objects.create(user=self.user)
+
+        CartItem.objects.create(
+            cart=cart,
+            product=product,
+            quantity=3,
+        )
+
+        # Checkout first.
+        self.client.force_authenticate(user=self.user)
+
+        checkout_response = self.client.post(
+            self.url,
+            format="json",
+        )
+
+        self.assertEqual(
+            checkout_response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        product.refresh_from_db()
+
+        # 10 - 3 = 7 after checkout.
+        self.assertEqual(product.stock, 7)
+
+        order = Order.objects.get(user=self.user)
+
+        # Cancel the order.
+        response = self.client.patch(
+            reverse("order-detail", args=[order.id]),
+            {"status": Order.OrderStatus.CANCELLED},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        order.refresh_from_db()
+        product.refresh_from_db()
+
+        self.assertEqual(
+            order.status,
+            Order.OrderStatus.CANCELLED,
+        )
+
+        # 7 + 3 = 10 after cancellation.
+        self.assertEqual(product.stock, 10)
+    
+    def _checkout_pending_order(self, quantity=3, stock=10):
+        seller_user = User.objects.create_user(username=f"seller-{quantity}-{stock}")
+        seller_profile = SellerProfile.objects.create(user=seller_user, business_name="S")
+        store = Store.objects.create(seller=seller_profile, store_name="St")
+        product = Product.objects.create(
+            store=store, name="P", price=Decimal("100.00"), stock=stock, is_active=True
+        )
+        cart = Cart.objects.create(user=self.user)
+        CartItem.objects.create(cart=cart, product=product, quantity=quantity)
+
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.post(self.url, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        return product, Order.objects.get(user=self.user)
+
+    def _cancel(self, order):
+        return self.client.patch(
+            reverse("order-detail", args=[order.id]),
+            {"status": Order.OrderStatus.CANCELLED},
+            format="json",
+        )
+
+    def test_cancelling_twice_restores_stock_only_once(self):
+        product, order = self._checkout_pending_order()
+
+        self.assertEqual(self._cancel(order).status_code, status.HTTP_200_OK)
+        self.assertEqual(self._cancel(order).status_code, status.HTTP_400_BAD_REQUEST)
+
+        product.refresh_from_db()
+        self.assertEqual(product.stock, 10)
+
+    def test_non_pending_order_cannot_be_cancelled(self):
+        product, order = self._checkout_pending_order()
+        Order.objects.filter(pk=order.pk).update(status=Order.OrderStatus.SHIPPED)
+
+        self.assertEqual(self._cancel(order).status_code, status.HTTP_400_BAD_REQUEST)
+
+        product.refresh_from_db()
+        self.assertEqual(product.stock, 7)
+
+    def test_cannot_cancel_another_users_order(self):
+        product, order = self._checkout_pending_order()
+        other = User.objects.create_user(username="other-buyer")
+        self.client.force_authenticate(user=other)
+
+        self.assertEqual(self._cancel(order).status_code, status.HTTP_404_NOT_FOUND)
+
+        product.refresh_from_db()
+        self.assertEqual(product.stock, 7)
+
+    def test_rejects_non_cancel_status(self):
+        _, order = self._checkout_pending_order()
+        resp = self.client.patch(
+            reverse("order-detail", args=[order.id]),
+            {"status": "shipped"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 class ProductWriteTests(APITestCase):
 
     def setUp(self):
