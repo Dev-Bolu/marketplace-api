@@ -6,7 +6,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Cart, CartItem, Product, SellerProfile, Store
+from .models import Cart, CartItem, Product, SellerProfile, Store, Order
+
 
 
 class CartViewTests(APITestCase):
@@ -421,9 +422,10 @@ class CartItemDetailViewTests(APITestCase):
             response.data["quantity"],
             2,
         )
+        self.assertNotIn("product", response.data)
         self.assertEqual(
-            response.data["product"],
-            self.product.id,
+        response.data["product_detail"]["id"],
+        self.product.id,
         )
 
     def test_other_user_cannot_retrieve_cart_item(self):
@@ -700,3 +702,154 @@ class CartItemDetailViewTests(APITestCase):
             response.data["subtotal"],
             "200.00",
         )
+
+class OrderListViewTests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="buyer")
+        self.url = reverse("order-list")
+
+    def test_cannot_checkout_without_a_cart(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Confirm the request starts with no cart or order.
+        self.assertFalse(
+            Cart.objects.filter(user=self.user).exists()
+        )
+        self.assertFalse(
+            Order.objects.filter(user=self.user).exists()
+        )
+
+        response = self.client.post(
+            self.url,
+            data={},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(
+            response.data,
+            {"detail": "Cannot checkout an empty cart."},
+        )
+
+        # A failed checkout should not modify the database.
+        self.assertFalse(
+            Cart.objects.filter(user=self.user).exists()
+        )
+        self.assertFalse(
+            Order.objects.filter(user=self.user).exists()
+        )
+    
+    def test_cannot_checkout_existing_empty_cart(self):
+    # Arrange: the user already has a cart, but it contains no items.
+        cart = Cart.objects.create(user=self.user)
+
+        self.client.force_authenticate(user=self.user)
+
+        # Act
+        response = self.client.post(
+            self.url,
+            data={},
+            format="json",
+        )
+
+        # Assert: checkout is rejected.
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(
+            response.data,
+            {"detail": "Cannot checkout an empty cart."},
+        )
+
+        # The same cart still exists and no order was created.
+        self.assertTrue(
+            Cart.objects.filter(
+                pk=cart.pk,
+                user=self.user,
+            ).exists()
+        )
+        self.assertEqual(
+            Cart.objects.filter(user=self.user).count(),
+            1,
+        )
+        self.assertFalse(
+            Order.objects.filter(user=self.user).exists()
+        )
+
+class ProductWriteTests(APITestCase):
+
+    def setUp(self):
+        self.seller_user = User.objects.create_user(
+            username="product-seller",
+        )
+
+        self.seller_profile = SellerProfile.objects.create(
+            user=self.seller_user,
+            business_name="Product Seller",
+        )
+
+        self.store = Store.objects.create(
+            seller=self.seller_profile,
+            store_name="Product Store",
+        )
+
+        self.url = reverse("product-list")
+
+
+class ProductWriteTests(APITestCase):
+
+    def setUp(self):
+        self.seller_user = User.objects.create_user(
+            username="product-seller",
+        )
+
+        self.seller_profile = SellerProfile.objects.create(
+            user=self.seller_user,
+            business_name="Product Seller",
+        )
+
+        self.store = Store.objects.create(
+            seller=self.seller_profile,
+            store_name="Product Store",
+        )
+
+        self.url = reverse("product-list")
+
+    def test_seller_can_create_product_in_own_store(self):
+        self.client.force_authenticate(user=self.seller_user)
+
+        payload = {
+            "store_id": self.store.id,
+            "name": "Test Product",
+            "description": "Test description",
+            "price": "100.00",
+            "stock": 5,
+            "is_active": True,
+        }
+
+        response = self.client.post(
+            self.url,
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+            response.data,
+        )
+
+        product = Product.objects.get(
+            name="Test Product",
+        )
+
+        self.assertEqual(Product.objects.count(), 1)
+        self.assertEqual(product.store, self.store)
+        self.assertEqual(product.price, Decimal("100.00"))
+        self.assertEqual(product.stock, 5)
+        self.assertTrue(product.is_active)

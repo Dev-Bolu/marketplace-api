@@ -2,11 +2,14 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from marketplace.models import Category,Product, SellerProfile, Store, Cart,CartItem
-from marketplace.serializers import CategorySerializer, ProductSerializer, SellerProfileSerializer, UserRegistrationSerializer, StoreSerializer, CartSerializer, CartItemSerializer
+from marketplace.models import Category,Product, SellerProfile, Store, Cart,CartItem,Order, OrderItem
+from marketplace.serializers import CategorySerializer, ProductSerializer, SellerProfileSerializer, UserRegistrationSerializer, StoreSerializer, CartSerializer, CartItemSerializer,OrderSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny
+from django.db import transaction
+from .filters import ProductFilter
+from rest_framework.pagination import PageNumberPagination
 
 # Create your views here.
 class WelcomeView(APIView):
@@ -242,32 +245,57 @@ class MyStoresDetailView(APIView):
         return Response(status=204)  
     
     
+class ProductPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 class ProductListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        products = Product.objects.all()
-        serializer = ProductSerializer(products, many=True)
-        return Response(serializer.data)
+        products = Product.objects.all().order_by("-created_at")
+
+        product_filter = ProductFilter(
+            request.query_params,
+            queryset=products,
+        )
+
+        paginator = ProductPagination()
+
+        paginated_products = paginator.paginate_queryset(
+            product_filter.qs,
+            request,
+        )
+
+        serializer = ProductSerializer(
+            paginated_products,
+            many=True,
+        )
+
+        return paginator.get_paginated_response(
+            serializer.data
+        )
 
     def post(self, request):
         serializer = ProductSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            store_id = serializer.validated_data.pop("store_id")
+        requested_store = serializer.validated_data["store"]
 
-            store = get_object_or_404(
-                Store,
-                pk=store_id,
-                seller=request.user.sellerprofile
-            )
+        # Security: seller may only create products in their own store.
+        authorized_store = get_object_or_404(
+            Store,
+            pk=requested_store.pk,
+            seller__user=request.user,
+        )
 
-            serializer.save(store=store)
+        serializer.save(store=authorized_store)
 
-            return Response(serializer.data, status=201)
-
-        return Response(serializer.errors, status=400)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+        )
     
 
 class ProductDetailView(APIView):
@@ -282,66 +310,62 @@ class MyProductListView(APIView):
 
     def get(self, request):
         products = Product.objects.filter(
-            store__seller=request.user.sellerprofile
+            store__seller__user=request.user,
         )
-        serializer = ProductSerializer(products, many=True)
+
+        serializer = ProductSerializer(
+            products,
+            many=True,
+        )
+
         return Response(serializer.data)
     
 
 class MyProductDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, pk):
-        product = get_object_or_404(
+    def get_product(self, request, pk):
+        return get_object_or_404(
             Product,
             pk=pk,
-            store__seller=request.user.sellerprofile
+            store__seller__user=request.user,
         )
+
+    def get(self, request, pk):
+        product = self.get_product(request, pk)
         serializer = ProductSerializer(product)
+
         return Response(serializer.data)
 
     def patch(self, request, pk):
-        product = get_object_or_404(
-            Product,
-            pk=pk,
-            store__seller=request.user.sellerprofile
-        )
+        product = self.get_product(request, pk)
+
+        if "store_id" in request.data:
+            return Response(
+                {"store_id": "A product cannot be moved to another store."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         serializer = ProductSerializer(
             product,
             data=request.data,
-            partial=True
+            partial=True,
         )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-
-        return Response(serializer.errors, status=400)
-
-    def put(self, request, pk):
-        product = get_object_or_404(
-            Product,
-            pk=pk,
-            store__seller=request.user.sellerprofile
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK,
         )
-        serializer = ProductSerializer(
-            product,
-            data=request.data,
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=400)
 
     def delete(self, request, pk):
-        product = get_object_or_404(
-            Product,
-            pk=pk,
-            store__seller=request.user.sellerprofile
-        )
+        product = self.get_product(request, pk)
         product.delete()
-        return Response(status=204) 
+
+        return Response(
+            status=status.HTTP_204_NO_CONTENT,
+        )
     
 class CartView(APIView):
     permission_classes = [IsAuthenticated]
@@ -469,3 +493,106 @@ class CartItemDetailView(APIView):
         cart_item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+class OrderListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        orders = request.user.orders.all()
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        user = request.user
+
+        cart = Cart.objects.filter(user=user).first()
+
+        if cart is None:
+            return Response(
+                {"detail": "Cannot checkout an empty cart."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cart_items = cart.cart_items.all()
+
+        if not cart_items.exists():
+            return Response(
+                {"detail": "Cannot checkout an empty cart."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+
+            # Lock and validate every product
+            products = {}
+
+            for cart_item in cart_items:
+                product = Product.objects.select_for_update().get(
+                    pk=cart_item.product_id
+                )
+
+                if not product.is_active:
+                    return Response(
+                        {"error": f"{product.name} is no longer available."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if cart_item.quantity > product.stock:
+                    return Response(
+                        {
+                            "error": (
+                                f"Not enough stock for {product.name}. "
+                                f"Available stock: {product.stock}."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                products[product.id] = product
+
+            # Create the order
+            order = Order.objects.create(
+                user=user,
+                status=Order.OrderStatus.PENDING
+            )
+
+            # Create the order items
+            order_items = []
+
+            for cart_item in cart_items:
+                product = products[cart_item.product_id]
+
+                order_items.append(
+                    OrderItem(
+                        order=order,
+                        product=product,
+                        quantity=cart_item.quantity,
+                        unit_price=product.price
+                    )
+                )
+
+                # Reduce stock
+                product.stock -= cart_item.quantity
+                product.save(update_fields=["stock"])
+
+            OrderItem.objects.bulk_create(order_items)
+
+            # Clear the buyer's cart
+            cart_items.delete()
+
+        serializer = OrderSerializer(order)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED
+        )
+    
+class OrderDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, pk):
+        order = get_object_or_404(
+            Order,
+            pk=pk,
+            user=request.user
+        )
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)

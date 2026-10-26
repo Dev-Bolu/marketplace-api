@@ -82,23 +82,74 @@ class StoreSerializer(serializers.ModelSerializer):
         read_only_fields = ["seller", "created_at", "updated_at"]
         
 
+
 class ProductSerializer(serializers.ModelSerializer):
-    store_id = serializers.IntegerField(write_only=True)
+    """
+    Serializer for creating, updating, and displaying products.
+
+    - store_id is accepted when creating a product.
+    - category uses the category slug for a cleaner public API.
+    - store ownership is enforced in the view.
+    - price and stock are validated before saving.
+    """
+
+    store_id = serializers.PrimaryKeyRelatedField(
+        source="store",
+        queryset=Store.objects.all(),
+        write_only=True,
+    )
+
+    store = serializers.PrimaryKeyRelatedField(
+        read_only=True,
+    )
+
+    category = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Category.objects.all(),
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Product
-        fields = "__all__"
+
+        fields = [
+            "id",
+            "store",
+            "store_id",
+            "category",
+            "name",
+            "description",
+            "price",
+            "stock",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+
         read_only_fields = [
+            "id",
             "store",
             "created_at",
-            "updated_at"
+            "updated_at",
         ]
+
+    def validate_name(self, value):
+        value = value.strip()
+
+        if not value:
+            raise serializers.ValidationError(
+                "Product name cannot be empty."
+            )
+
+        return value
 
     def validate_price(self, value):
         if value <= 0:
             raise serializers.ValidationError(
                 "Price must be greater than zero."
             )
+
         return value
 
     def validate_stock(self, value):
@@ -106,9 +157,20 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Stock cannot be negative."
             )
+
         return value
 
 class CartItemSerializer(serializers.ModelSerializer):
+    product = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        write_only=True,
+    )
+
+    product_detail = ProductSerializer(
+        source="product",
+        read_only=True,
+    )
+
     subtotal = serializers.DecimalField(
         max_digits=20,
         decimal_places=2,

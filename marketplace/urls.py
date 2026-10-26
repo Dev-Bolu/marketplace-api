@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from .import views
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -7,6 +7,9 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     path("welcome/", views.WelcomeView.as_view(), name="welcome"),
+
+    path("register/", views.UserRegistrationView.as_view(), 
+    name="user-register"),
     
     path("categories/", views.CategoryListView.as_view(), name="category-list"),
     path("categories/<int:pk>/", views.CategoryDetailView.as_view(),
@@ -18,7 +21,6 @@ urlpatterns = [
     name="seller-profile-detail"),
     path("seller-profiles/me/",views.MySellerProfileView.as_view(),
     name="my-seller-profile"),
-    
     
     path("stores/", views.StoreListView.as_view(), 
     name="store-list"),
@@ -33,9 +35,6 @@ urlpatterns = [
     name="token-obtain-pair"),
     path("token/refresh/",TokenRefreshView.as_view(),
     name="token-refresh"),
-    
-    path("register/", views.UserRegistrationView.as_view(), 
-    name="user-register"),
     
     path("products/", views.ProductListView.as_view(), 
     name="product-list"),
@@ -54,8 +53,12 @@ urlpatterns = [
     name="cart-item-add"),
     path("cart/items/<int:pk>/", views.CartItemDetailView.as_view(),
     name="cart-item-detail"),
+    
     path("orders/",views.OrderListView.as_view(),
     name="order-list",),
+    path("orders/<int:pk>/",views.OrderDetailView.as_view(),
+    name="order-detail"
+)
 
     
     ]
