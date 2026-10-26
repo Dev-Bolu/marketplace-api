@@ -780,7 +780,434 @@ class OrderListViewTests(APITestCase):
         self.assertFalse(
             Order.objects.filter(user=self.user).exists()
         )
+    
+    def test_checkout_rejects_inactive_product(self):
+        seller_user = User.objects.create_user(
+            username="inactive-seller",
+        )
 
+        seller_profile = SellerProfile.objects.create(
+            user=seller_user,
+            business_name="Inactive Seller",
+        )
+
+        store = Store.objects.create(
+            seller=seller_profile,
+            store_name="Inactive Store",
+        )
+
+        product = Product.objects.create(
+            store=store,
+            name="Inactive Product",
+            price=Decimal("100.00"),
+            stock=10,
+            is_active=False,
+        )
+
+        cart = Cart.objects.create(
+            user=self.user,
+        )
+
+        CartItem.objects.create(
+            cart=cart,
+            product=product,
+            quantity=1,
+        )
+
+        self.client.force_authenticate(
+            user=self.user,
+        )
+
+        response = self.client.post(
+            self.url,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+        self.assertEqual(
+            response.data["error"],
+            "Inactive Product is no longer available.",
+        )
+
+        self.assertEqual(
+            Order.objects.count(),
+            0,
+        )
+        
+    def test_checkout_rejects_insufficient_stock(self):
+        seller_user = User.objects.create_user(
+            username="stock-seller",
+        )
+
+        seller_profile = SellerProfile.objects.create(
+            user=seller_user,
+            business_name="Stock Seller",
+        )
+
+        store = Store.objects.create(
+            seller=seller_profile,
+            store_name="Stock Store",
+        )
+
+        product = Product.objects.create(
+            store=store,
+            name="Limited Product",
+            price=Decimal("100.00"),
+            stock=2,
+            is_active=True,
+        )
+
+        cart = Cart.objects.create(
+            user=self.user,
+        )
+
+        cart_item = CartItem.objects.create(
+            cart=cart,
+            product=product,
+            quantity=5,
+        )
+
+        self.client.force_authenticate(
+            user=self.user,
+        )
+
+        response = self.client.post(
+            self.url,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+        self.assertEqual(
+            response.data["error"],
+            "Not enough stock for Limited Product. Available stock: 2.",
+        )
+
+        self.assertEqual(
+            Order.objects.count(),
+            0,
+        )
+
+        product.refresh_from_db()
+
+        self.assertEqual(
+            product.stock,
+            2,
+        )
+
+        cart_item.refresh_from_db()
+
+        self.assertEqual(
+            cart_item.quantity,
+            5,
+        )
+    
+    def test_checkout_saves_current_product_price(self):
+        seller_user = User.objects.create_user(
+            username="price-seller",
+        )
+
+        seller_profile = SellerProfile.objects.create(
+            user=seller_user,
+            business_name="Price Seller",
+        )
+
+        store = Store.objects.create(
+            seller=seller_profile,
+            store_name="Price Store",
+        )
+
+        product = Product.objects.create(
+            store=store,
+            name="Price Snapshot Product",
+            price=Decimal("100.00"),
+            stock=10,
+            is_active=True,
+        )
+
+        cart = Cart.objects.create(
+            user=self.user,
+        )
+
+        CartItem.objects.create(
+            cart=cart,
+            product=product,
+            quantity=2,
+        )
+
+        self.client.force_authenticate(
+            user=self.user,
+        )
+
+        response = self.client.post(
+            self.url,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        order = Order.objects.get(
+            user=self.user,
+        )
+
+        order_item = order.order_items.get(
+            product=product,
+        )
+
+        self.assertEqual(
+            order_item.unit_price,
+            Decimal("100.00"),
+        )
+    
+    def test_successful_checkout_empties_cart(self):
+        seller_user = User.objects.create_user(
+            username="cart-seller",
+        )
+
+        seller_profile = SellerProfile.objects.create(
+            user=seller_user,
+            business_name="Cart Seller",
+        )
+
+        store = Store.objects.create(
+            seller=seller_profile,
+            store_name="Cart Store",
+        )
+
+        product = Product.objects.create(
+            store=store,
+            name="Cart Product",
+            price=Decimal("100.00"),
+            stock=10,
+            is_active=True,
+        )
+
+        cart = Cart.objects.create(
+            user=self.user,
+        )
+
+        CartItem.objects.create(
+            cart=cart,
+            product=product,
+            quantity=2,
+        )
+
+        self.client.force_authenticate(
+            user=self.user,
+        )
+
+        response = self.client.post(
+            self.url,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        cart.refresh_from_db()
+
+        self.assertEqual(
+            cart.cart_items.count(),
+            0,
+        )
+
+        self.assertTrue(
+            Order.objects.filter(
+                user=self.user,
+            ).exists()
+        )
+        
+    def test_checkout_creates_order_with_multiple_products(self):
+        seller_user = User.objects.create_user(
+            username="multi-seller",
+        )
+
+        seller_profile = SellerProfile.objects.create(
+            user=seller_user,
+            business_name="Multi Seller",
+        )
+
+        store = Store.objects.create(
+            seller=seller_profile,
+            store_name="Multi Store",
+        )
+
+        product_one = Product.objects.create(
+            store=store,
+            name="Product One",
+            price=Decimal("100.00"),
+            stock=10,
+            is_active=True,
+        )
+
+        product_two = Product.objects.create(
+            store=store,
+            name="Product Two",
+            price=Decimal("200.00"),
+            stock=8,
+            is_active=True,
+        )
+
+        cart = Cart.objects.create(
+            user=self.user,
+        )
+
+        CartItem.objects.create(
+            cart=cart,
+            product=product_one,
+            quantity=2,
+        )
+
+        CartItem.objects.create(
+            cart=cart,
+            product=product_two,
+            quantity=3,
+        )
+
+        self.client.force_authenticate(
+            user=self.user,
+        )
+
+        response = self.client.post(
+            self.url,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        order = Order.objects.get(
+            user=self.user,
+        )
+
+        self.assertEqual(
+            order.order_items.count(),
+            2,
+        )
+
+        item_one = order.order_items.get(
+            product=product_one,
+        )
+
+        item_two = order.order_items.get(
+            product=product_two,
+        )
+
+        self.assertEqual(
+            item_one.quantity,
+            2,
+        )
+
+        self.assertEqual(
+            item_one.unit_price,
+            Decimal("100.00"),
+        )
+
+        self.assertEqual(
+            item_two.quantity,
+            3,
+        )
+
+        self.assertEqual(
+            item_two.unit_price,
+            Decimal("200.00"),
+        )
+
+        product_one.refresh_from_db()
+        product_two.refresh_from_db()
+
+        self.assertEqual(
+            product_one.stock,
+            8,
+        )
+
+        self.assertEqual(
+            product_two.stock,
+            5,
+        )
+    def test_order_total_price_is_calculated_correctly(self):
+        seller_user = User.objects.create_user(
+            username="total-seller",
+        )
+
+        seller_profile = SellerProfile.objects.create(
+            user=seller_user,
+            business_name="Total Seller",
+        )
+
+        store = Store.objects.create(
+            seller=seller_profile,
+            store_name="Total Store",
+        )
+
+        product_one = Product.objects.create(
+            store=store,
+            name="Product One",
+            price=Decimal("100.00"),
+            stock=10,
+            is_active=True,
+        )
+
+        product_two = Product.objects.create(
+            store=store,
+            name="Product Two",
+            price=Decimal("200.00"),
+            stock=10,
+            is_active=True,
+        )
+
+        cart = Cart.objects.create(
+            user=self.user,
+        )
+
+        CartItem.objects.create(
+            cart=cart,
+            product=product_one,
+            quantity=2,
+        )
+
+        CartItem.objects.create(
+            cart=cart,
+            product=product_two,
+            quantity=3,
+        )
+
+        self.client.force_authenticate(
+            user=self.user,
+        )
+
+        response = self.client.post(
+            self.url,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        order = Order.objects.get(
+            user=self.user,
+        )
+
+        self.assertEqual(
+            order.total_price,
+            Decimal("800.00"),
+        )
 class ProductWriteTests(APITestCase):
 
     def setUp(self):
@@ -1254,4 +1681,176 @@ class StoreWriteTests(APITestCase):
             Store.objects.filter(
                 pk=store.id,
             ).exists()
+        )
+        
+class UserRegistrationTests(APITestCase):
+
+    def setUp(self):
+        self.url = reverse("user-register")
+
+    def test_user_can_register(self):
+        payload = {
+            "username": "newuser",
+            "email": "newuser@example.com",
+            "password": "StrongPassword123",
+        }
+
+        response = self.client.post(
+            self.url,
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        self.assertTrue(
+            User.objects.filter(
+                username="newuser",
+            ).exists()
+        )
+
+    def test_password_is_hashed(self):
+        payload = {
+            "username": "secureuser",
+            "email": "secure@example.com",
+            "password": "StrongPassword123",
+        }
+
+        response = self.client.post(
+            self.url,
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+        )
+
+        user = User.objects.get(
+            username="secureuser",
+        )
+
+        self.assertNotEqual(
+            user.password,
+            "StrongPassword123",
+        )
+
+        self.assertTrue(
+            user.check_password("StrongPassword123")
+        )
+
+    def test_duplicate_username_is_rejected(self):
+        User.objects.create_user(
+            username="existinguser",
+            email="existing@example.com",
+            password="StrongPassword123",
+        )
+
+        payload = {
+            "username": "existinguser",
+            "email": "another@example.com",
+            "password": "StrongPassword123",
+        }
+
+        response = self.client.post(
+            self.url,
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+        self.assertEqual(
+            User.objects.filter(
+                username="existinguser",
+            ).count(),
+            1,
+        )
+        
+class JWTAuthenticationTests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="jwtuser",
+            password="StrongPassword123",
+        )
+        self.url = reverse("token-obtain-pair")
+
+    def test_valid_credentials_return_tokens(self):
+        payload = {
+            "username": "jwtuser",
+            "password": "StrongPassword123",
+        }
+
+        response = self.client.post(
+            self.url,
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+
+    def test_invalid_password_is_rejected(self):
+        payload = {
+            "username": "jwtuser",
+            "password": "WrongPassword123",
+        }
+
+        response = self.client.post(
+            self.url,
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+    def test_protected_endpoint_requires_authentication(self):
+        url = reverse("cart")
+
+        response = self.client.get(url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+    def test_valid_token_can_access_protected_endpoint(self):
+        token_response = self.client.post(
+            self.url,
+            data={
+                "username": "jwtuser",
+                "password": "StrongPassword123",
+            },
+            format="json",
+        )
+
+        access_token = token_response.data["access"]
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {access_token}"
+        )
+
+        response = self.client.get(
+            reverse("cart")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
         )
