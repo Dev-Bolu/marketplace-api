@@ -5,11 +5,12 @@ from rest_framework.response import Response
 from marketplace.models import Category,Product, SellerProfile, Store, Cart,CartItem,Order, OrderItem
 from marketplace.serializers import CategorySerializer, ProductSerializer, SellerProfileSerializer, UserRegistrationSerializer, StoreSerializer, CartSerializer, CartItemSerializer,OrderSerializer
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import transaction
 from .filters import ProductFilter
 from rest_framework.pagination import PageNumberPagination
+
+
 
 # Create your views here.
 class WelcomeView(APIView):
@@ -251,7 +252,14 @@ class ProductPagination(PageNumberPagination):
     max_page_size = 100
 
 class ProductListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [AllowAny()]
+
+        return [IsAuthenticated()]
+
 
     def get(self, request):
         products = Product.objects.all().order_by("-created_at")
@@ -299,26 +307,59 @@ class ProductListView(APIView):
     
 
 class ProductDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    """
+    Public endpoint for viewing a single product.
+
+    Authentication is not required because customers should
+    be able to browse product details before logging in.
+    """
+
+    permission_classes = [AllowAny]
+
     def get(self, request, pk):
-        product = get_object_or_404(Product,pk=pk)
+        product = get_object_or_404(
+            Product.objects.select_related(
+                "store",
+                "category",
+            ),
+            pk=pk,
+            is_active=True,
+        )
+
         serializer = ProductSerializer(product)
+
         return Response(serializer.data)
     
 class MyProductListView(APIView):
+    """
+    Returns products belonging only to the authenticated seller.
+    """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        products = Product.objects.filter(
-            store__seller__user=request.user,
+        products = (
+            Product.objects
+            .filter(store__seller__user=request.user)
+            .select_related("store", "category")
+            .order_by("-created_at")
+        )
+
+        paginator = ProductPagination()
+
+        paginated_products = paginator.paginate_queryset(
+            products,
+            request,
         )
 
         serializer = ProductSerializer(
-            products,
+            paginated_products,
             many=True,
         )
 
-        return Response(serializer.data)
+        return paginator.get_paginated_response(
+            serializer.data
+        )
     
 
 class MyProductDetailView(APIView):

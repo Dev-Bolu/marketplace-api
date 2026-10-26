@@ -801,25 +801,6 @@ class ProductWriteTests(APITestCase):
         self.url = reverse("product-list")
 
 
-class ProductWriteTests(APITestCase):
-
-    def setUp(self):
-        self.seller_user = User.objects.create_user(
-            username="product-seller",
-        )
-
-        self.seller_profile = SellerProfile.objects.create(
-            user=self.seller_user,
-            business_name="Product Seller",
-        )
-
-        self.store = Store.objects.create(
-            seller=self.seller_profile,
-            store_name="Product Store",
-        )
-
-        self.url = reverse("product-list")
-
     def test_seller_can_create_product_in_own_store(self):
         self.client.force_authenticate(user=self.seller_user)
 
@@ -853,3 +834,424 @@ class ProductWriteTests(APITestCase):
         self.assertEqual(product.price, Decimal("100.00"))
         self.assertEqual(product.stock, 5)
         self.assertTrue(product.is_active)
+        
+    def test_seller_cannot_create_product_in_another_seller_store(self):
+        other_user = User.objects.create_user(
+            username="other-seller",
+        )
+
+        other_profile = SellerProfile.objects.create(
+            user=other_user,
+            business_name="Other Seller",
+        )
+
+        other_store = Store.objects.create(
+            seller=other_profile,
+            store_name="Other Store",
+        )
+
+        self.client.force_authenticate(user=self.seller_user)
+
+        payload = {
+            "store_id": other_store.id,
+            "name": "Unauthorized Product",
+            "description": "Should not be created",
+            "price": "100.00",
+            "stock": 5,
+            "is_active": True,
+        }
+
+        response = self.client.post(
+            self.url,
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+        self.assertFalse(
+            Product.objects.filter(
+                name="Unauthorized Product",
+            ).exists()
+        )
+        
+    def test_seller_cannot_access_another_sellers_product(self):
+        product = Product.objects.create(
+            store=self.store,
+            name="Private Product",
+            description="Seller A product",
+            price=Decimal("100.00"),
+            stock=10,
+        )
+
+        other_user = User.objects.create_user(
+            username="other-seller",
+        )
+
+        self.client.force_authenticate(user=other_user)
+
+        url = reverse(
+            "my-product-detail",
+            kwargs={"pk": product.id},
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        
+    def test_seller_cannot_update_another_sellers_product(self):
+        product = Product.objects.create(
+            store=self.store,
+            name="Private Product",
+            description="Seller A product",
+            price=Decimal("100.00"),
+            stock=10,
+        )
+
+        other_user = User.objects.create_user(
+            username="other-seller",
+        )
+
+        self.client.force_authenticate(user=other_user)
+
+        url = reverse(
+            "my-product-detail",
+            kwargs={"pk": product.id},
+        )
+
+        response = self.client.patch(
+            url,
+            data={"price": "50.00"},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+        product.refresh_from_db()
+
+        self.assertEqual(
+            product.price,
+            Decimal("100.00"),
+        )
+    
+    def test_seller_cannot_delete_another_sellers_product(self):
+        product = Product.objects.create(
+            store=self.store,
+            name="Protected Product",
+            description="Seller A product",
+            price=Decimal("100.00"),
+            stock=10,
+        )
+
+        other_user = User.objects.create_user(
+            username="other-seller",
+        )
+
+        self.client.force_authenticate(user=other_user)
+
+        url = reverse(
+            "my-product-detail",
+            kwargs={"pk": product.id},
+        )
+
+        response = self.client.delete(url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+        self.assertTrue(
+            Product.objects.filter(
+                pk=product.id,
+            ).exists()
+        )
+    
+    def test_seller_can_delete_own_product(self):
+        product = Product.objects.create(
+            store=self.store,
+            name="Product To Delete",
+            description="My product",
+            price=Decimal("100.00"),
+            stock=10,
+        )
+
+        self.client.force_authenticate(
+            user=self.seller_user,
+        )
+
+        url = reverse(
+            "my-product-detail",
+            kwargs={"pk": product.id},
+        )
+
+        response = self.client.delete(url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_204_NO_CONTENT,
+        )
+
+        self.assertFalse(
+            Product.objects.filter(
+                pk=product.id,
+            ).exists()
+        )
+
+class StoreWriteTests(APITestCase):
+
+    def setUp(self):
+        self.seller_user = User.objects.create_user(
+            username="store-seller",
+        )
+
+        self.seller_profile = SellerProfile.objects.create(
+            user=self.seller_user,
+            business_name="Store Seller",
+        )
+
+        self.url = reverse("store-list")
+
+    def test_seller_can_create_store(self):
+        self.client.force_authenticate(
+            user=self.seller_user,
+        )
+
+        payload = {
+            "store_name": "My New Store",
+            "description": "My marketplace store",
+            "location": "Lagos",
+            "is_active": True,
+        }
+
+        response = self.client.post(
+            self.url,
+            data=payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+            response.data,
+        )
+
+        store = Store.objects.get(
+            store_name="My New Store",
+        )
+
+        self.assertEqual(
+            store.seller,
+            self.seller_profile,
+        )
+        
+    def test_seller_can_access_own_store(self):
+        store = Store.objects.create(
+            seller=self.seller_profile,
+            store_name="My Store",
+        )
+
+        self.client.force_authenticate(
+            user=self.seller_user,
+        )
+
+        url = reverse(
+            "my-stores-detail",
+            kwargs={"pk": store.id},
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        self.assertEqual(
+            response.data["store_name"],
+            "My Store",
+        )
+
+    def test_seller_cannot_access_another_sellers_store(self):
+        other_user = User.objects.create_user(
+            username="other-seller",
+        )
+
+        other_profile = SellerProfile.objects.create(
+            user=other_user,
+            business_name="Other Seller",
+        )
+
+        other_store = Store.objects.create(
+            seller=other_profile,
+            store_name="Other Store",
+        )
+
+        self.client.force_authenticate(
+            user=self.seller_user,
+        )
+
+        url = reverse(
+            "my-stores-detail",
+            kwargs={"pk": other_store.id},
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        
+    def test_seller_cannot_update_another_sellers_store(self):
+        other_user = User.objects.create_user(
+            username="other-seller",
+        )
+
+        other_profile = SellerProfile.objects.create(
+            user=other_user,
+            business_name="Other Seller",
+        )
+
+        other_store = Store.objects.create(
+            seller=other_profile,
+            store_name="Other Store",
+        )
+
+        self.client.force_authenticate(
+            user=self.seller_user,
+        )
+
+        url = reverse(
+            "my-stores-detail",
+            kwargs={"pk": other_store.id},
+        )
+
+        response = self.client.patch(
+            url,
+            data={
+                "store_name": "Hacked Store",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+        other_store.refresh_from_db()
+
+        self.assertEqual(
+            other_store.store_name,
+            "Other Store",
+        )
+        
+    def test_seller_cannot_delete_another_sellers_store(self):
+        other_user = User.objects.create_user(
+            username="other-seller",
+        )
+
+        other_profile = SellerProfile.objects.create(
+            user=other_user,
+            business_name="Other Seller",
+        )
+
+        other_store = Store.objects.create(
+            seller=other_profile,
+            store_name="Other Store",
+        )
+
+        self.client.force_authenticate(
+            user=self.seller_user,
+        )
+
+        url = reverse(
+            "my-stores-detail",
+            kwargs={"pk": other_store.id},
+        )
+
+        response = self.client.delete(url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+        self.assertTrue(
+            Store.objects.filter(
+                pk=other_store.id,
+            ).exists()
+        )
+    
+    def test_seller_can_update_own_store(self):
+        store = Store.objects.create(
+            seller=self.seller_profile,
+            store_name="Old Store Name",
+        )
+
+        self.client.force_authenticate(
+            user=self.seller_user,
+        )
+
+        url = reverse(
+            "my-stores-detail",
+            kwargs={"pk": store.id},
+        )
+
+        response = self.client.patch(
+            url,
+            data={
+                "store_name": "New Store Name",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        store.refresh_from_db()
+
+        self.assertEqual(
+            store.store_name,
+            "New Store Name",
+        )
+        
+    def test_seller_can_delete_own_store(self):
+        store = Store.objects.create(
+            seller=self.seller_profile,
+            store_name="Store To Delete",
+        )
+
+        self.client.force_authenticate(
+            user=self.seller_user,
+        )
+
+        url = reverse(
+            "my-stores-detail",
+            kwargs={"pk": store.id},
+        )
+
+        response = self.client.delete(url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_204_NO_CONTENT,
+        )
+
+        self.assertFalse(
+            Store.objects.filter(
+                pk=store.id,
+            ).exists()
+        )
