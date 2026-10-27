@@ -34,7 +34,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Cart, CartItem, Order, Product, SellerProfile, Store
+from .models import Cart, CartItem, Order, Product, SellerProfile, Store, OrderItem
+
 
 
 # ---------------------------------------------------------------------------
@@ -927,3 +928,257 @@ class JWTAuthenticationTests(APITestCase):
         response = self.client.get(reverse("cart"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class SellerOrderListTests(APITestCase):
+
+    def setUp(self):
+        self.url = reverse("seller-order-list")
+
+        self.buyer = User.objects.create_user(
+            username="buyer",
+            password="testpass123",
+        )
+
+        self.seller_a_user = User.objects.create_user(
+            username="seller-a",
+            password="testpass123",
+        )
+
+        self.seller_b_user = User.objects.create_user(
+            username="seller-b",
+            password="testpass123",
+        )
+
+        # Seller A
+        self.seller_a_profile = SellerProfile.objects.create(
+            user=self.seller_a_user,
+            business_name="Seller A Business",
+        )
+
+        self.seller_a_store = Store.objects.create(
+            seller=self.seller_a_profile,
+            store_name="Seller A Store",
+        )
+
+        self.product_a1 = Product.objects.create(
+            store=self.seller_a_store,
+            name="Alpha One",
+            price=Decimal("100.00"),
+            stock=50,
+            is_active=True,
+        )
+        
+        self.product_a2 = Product.objects.create(
+            store=self.seller_a_store,
+            name="Alpha Two",
+            price=Decimal("150.00"),
+            stock=50,
+            is_active=True,
+        )
+
+        # Seller B
+        self.seller_b_profile = SellerProfile.objects.create(
+            user=self.seller_b_user,
+            business_name="Seller B Business",
+        )
+
+        self.seller_b_store = Store.objects.create(
+            seller=self.seller_b_profile,
+            store_name="Seller B Store",
+        )
+
+        self.product_b1 = Product.objects.create(
+            store=self.seller_b_store,
+            name="Bravo One",
+            price=Decimal("100.00"),
+            stock=50,
+            is_active=True,
+        )
+        
+    def test_seller_can_see_order_containing_their_product(self):
+        order = Order.objects.create(
+            user=self.buyer,
+            status=Order.OrderStatus.PENDING,
+        )
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a1,
+            quantity=2,
+            unit_price=self.product_a1.price,
+        )
+
+        self.client.force_authenticate(user=self.seller_a_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], order.id)
+        
+    def test_seller_does_not_see_order_containing_only_another_sellers_product(self):
+        order = Order.objects.create(
+            user=self.buyer,
+            status=Order.OrderStatus.PENDING,
+        )
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_b1,
+            quantity=2,
+            unit_price=self.product_b1.price,
+        )
+
+        self.client.force_authenticate(user=self.seller_a_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+        
+    def test_seller_sees_only_their_product_in_mixed_order(self):
+        order = Order.objects.create(user=self.buyer)
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a1,
+            quantity=2,
+            unit_price=self.product_a1.price,
+        )
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_b1,
+            quantity=3,
+            unit_price=self.product_b1.price,
+        )
+
+        self.client.force_authenticate(user=self.seller_a_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+        seller_order = response.data[0]
+
+        self.assertEqual(seller_order["id"], order.id)
+        self.assertEqual(len(seller_order["order_items"]), 1)
+        self.assertEqual(
+            seller_order["order_items"][0]["product_name"],
+            self.product_a1.name,
+        )
+        
+    def test_each_seller_sees_only_their_own_items(self):
+        order = Order.objects.create(user=self.buyer)
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a1,
+            quantity=2,
+            unit_price=self.product_a1.price,
+        )
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_b1,
+            quantity=3,
+            unit_price=self.product_b1.price,
+        )
+
+        self.client.force_authenticate(user=self.seller_b_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+        seller_order = response.data[0]
+
+        self.assertEqual(seller_order["id"], order.id)
+        self.assertEqual(len(seller_order["order_items"]), 1)
+        self.assertEqual(
+            seller_order["order_items"][0]["product_name"],
+            self.product_b1.name,
+        )
+        
+    def test_order_with_multiple_products_from_same_seller_appears_once(self):
+        order = Order.objects.create(user=self.buyer)
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a1,
+            quantity=1,
+            unit_price=self.product_a1.price,
+        )
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a2,
+            quantity=1,
+            unit_price=self.product_a2.price,
+        )
+
+        self.client.force_authenticate(user=self.seller_a_user)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+
+        seller_order = response.data[0]
+
+        self.assertEqual(seller_order["id"], order.id)
+        self.assertEqual(len(seller_order["order_items"]), 2)
+
+        product_names = {
+            item["product_name"]
+            for item in seller_order["order_items"]
+        }
+
+        self.assertEqual(
+            product_names,
+            {self.product_a1.name, self.product_a2.name},
+        )
+    
+    def test_requires_authentication(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(self.url)
+
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+    
+    def test_seller_with_no_matching_orders_gets_empty_list(self):
+        order = Order.objects.create(user=self.buyer)
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_b1,
+            quantity=1,
+            unit_price=self.product_b1.price,
+        )
+
+        self.client.force_authenticate(user=self.seller_a_user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+        
+    def test_user_without_seller_profile_gets_empty_list(self):
+        order = Order.objects.create(user=self.buyer)
+
+        OrderItem.objects.create(
+            order=order,
+            product=self.product_a1,
+            quantity=1,
+            unit_price=self.product_a1.price,
+        )
+
+        self.client.force_authenticate(user=self.buyer)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])

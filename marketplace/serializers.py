@@ -254,3 +254,46 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+class SellerOrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+
+    unit_price = serializers.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        read_only=True,
+        coerce_to_string=True,
+    )
+
+    subtotal = serializers.DecimalField(
+        max_digits=20,
+        decimal_places=2,
+        read_only=True,
+        coerce_to_string=True,
+    )
+
+    class Meta:
+        model = OrderItem
+        fields = ["id", "product_name", "quantity", "unit_price", "subtotal"]
+
+
+class SellerOrderSerializer(serializers.ModelSerializer):
+    # IMPORTANT: serialize ONLY the prefetched filtered list (prevents leaking other sellers' items)
+    order_items = SellerOrderItemSerializer(
+        source="seller_items",
+        many=True,
+        read_only=True,
+    )
+    # Identify the buyer who placed the order.
+    buyer_id = serializers.IntegerField(source="user_id", read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "status",
+            "buyer_id",
+            "order_items",
+            "created_at",
+            "updated_at",
+        ]

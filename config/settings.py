@@ -139,7 +139,12 @@ REST_FRAMEWORK = {
     ],
     
 }
+# 1) Hash cheap. PBKDF2 (~600k rounds) exists to slow attackers down --
+#    you do not want it inside your test loop. Every create_user with a
+#    password, every check_password(), every token obtain was paying it.
 
+# 3) Build tables straight from models.py instead of replaying every
+#    migration ever written.
 class DisableMigrations(dict):
     def __contains__(self, item):
         return True

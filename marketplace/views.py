@@ -3,15 +3,18 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from marketplace.models import Category,Product, SellerProfile, Store, Cart,CartItem,Order, OrderItem
-from marketplace.serializers import CategorySerializer, ProductSerializer, SellerProfileSerializer, UserRegistrationSerializer, StoreSerializer, CartSerializer, CartItemSerializer,OrderSerializer
+from .serializers import CategorySerializer, ProductSerializer, SellerProfileSerializer, UserRegistrationSerializer, StoreSerializer, CartSerializer, CartItemSerializer,OrderSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import transaction
 from .filters import ProductFilter
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Sum
+from django.db.models import Sum, Prefetch, Exists, OuterRef
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
+
+from rest_framework.generics import ListAPIView
+from .serializers import SellerOrderSerializer
 
 
 
@@ -736,26 +739,41 @@ class OrderDetailView(APIView):
             serializer.data,
             status=status.HTTP_200_OK,
         )
-        
 
 
-class MySellerOrderListView(APIView):
+class SellerOrderListView(ListAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = SellerOrderSerializer
 
-    def get(self, request):
-        # Get all products belonging to the authenticated seller
-        seller_products = Product.objects.filter(
-            store__seller__user=request.user
+    from django.db.models import Exists, OuterRef, Prefetch
+
+    def get_queryset(self):
+        user = self.request.user
+
+        # Used for prefetch (ordering is fine here)
+        seller_items_qs = (
+            OrderItem.objects
+            .filter(product__store__seller__user=user)
+            .select_related("product")
+            .order_by("id")
         )
 
-        # Get all order items for those products
-        order_items = OrderItem.objects.filter(
-            product__in=seller_products
-        ).select_related("order", "product")
+        # Used only for EXISTS (no ordering)
+        seller_items_exists_qs = (
+            OrderItem.objects
+            .filter(
+                order=OuterRef("pk"),
+                product__store__seller__user=user,
+            )
+            .order_by()  # important: clear ordering in subquery
+        )
 
-        # Get unique orders from the order items
-        order_ids = order_items.values_list("order_id", flat=True).distinct()
-        orders = Order.objects.filter(id__in=order_ids)
-
-        serializer = OrderSerializer(orders, many=True)
-        return Response(serializer.data)
+        return (
+            Order.objects
+            .annotate(has_seller_items=Exists(seller_items_exists_qs))
+            .filter(has_seller_items=True)
+            .order_by("-created_at", "-id")
+            .prefetch_related(
+                Prefetch("order_items", queryset=seller_items_qs, to_attr="seller_items")
+            )
+        )
