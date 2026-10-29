@@ -12,6 +12,8 @@ psycopg = {extras = ["binary"], version = "*"}
 djangorestframework-simplejwt = "*"
 
 [dev-packages]
+pytest = "*"
+pytest-django = "*"
 
 [requires]
 python_version = "3.12"
