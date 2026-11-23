@@ -7,9 +7,9 @@ name = "pypi"
 django = "*"
 djangorestframework = "*"
 django-filter = "*"
+djangorestframework-simplejwt = "*"
 django-phonenumber-field = {extras = ["phonenumbers"], version = "*"}
 psycopg = {extras = ["binary"], version = "*"}
-djangorestframework-simplejwt = "*"
 
 [dev-packages]
 pytest = "*"

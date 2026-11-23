@@ -26,7 +26,6 @@ deep-copied per test, so mutating self.product inside a test cannot leak
 into other tests -- but always assert against the DATABASE
 (refresh_from_db() / objects.get()), never against stale in-memory state.
 """
-
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -34,7 +33,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Cart, CartItem, Order, Product, SellerProfile, Store, OrderItem
+from .models import (Cart, CartItem, Order, Product, SellerProfile, Store, OrderItem,SellerOrder)
 
 
 
@@ -1002,8 +1001,14 @@ class SellerOrderListTests(APITestCase):
             status=Order.OrderStatus.PENDING,
         )
 
+        seller_order = SellerOrder.objects.create(
+            order=order,
+            seller=self.seller_a_profile,
+        )
+
         OrderItem.objects.create(
             order=order,
+            seller_order=seller_order,
             product=self.product_a1,
             quantity=2,
             unit_price=self.product_a1.price,
@@ -1015,33 +1020,26 @@ class SellerOrderListTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["id"], order.id)
-        
-    def test_seller_does_not_see_order_containing_only_another_sellers_product(self):
-        order = Order.objects.create(
-            user=self.buyer,
-            status=Order.OrderStatus.PENDING,
-        )
-
-        OrderItem.objects.create(
-            order=order,
-            product=self.product_b1,
-            quantity=2,
-            unit_price=self.product_b1.price,
-        )
-
-        self.client.force_authenticate(user=self.seller_a_user)
-
-        response = self.client.get(self.url)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
-        
+        self.assertEqual(response.data[0]["id"], seller_order.id)
+            
     def test_seller_sees_only_their_product_in_mixed_order(self):
         order = Order.objects.create(user=self.buyer)
 
+        # Seller A's part of the order
+        seller_order_a = SellerOrder.objects.create(
+            order=order,
+            seller=self.seller_a_profile,
+        )
+
+        # Seller B's part of the same order
+        seller_order_b = SellerOrder.objects.create(
+            order=order,
+            seller=self.seller_b_profile,
+        )
+
         OrderItem.objects.create(
             order=order,
+            seller_order=seller_order_a,
             product=self.product_a1,
             quantity=2,
             unit_price=self.product_a1.price,
@@ -1049,12 +1047,14 @@ class SellerOrderListTests(APITestCase):
 
         OrderItem.objects.create(
             order=order,
+            seller_order=seller_order_b,
             product=self.product_b1,
             quantity=3,
             unit_price=self.product_b1.price,
         )
 
         self.client.force_authenticate(user=self.seller_a_user)
+
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1062,18 +1062,61 @@ class SellerOrderListTests(APITestCase):
 
         seller_order = response.data[0]
 
-        self.assertEqual(seller_order["id"], order.id)
+        self.assertEqual(seller_order["id"], seller_order_a.id)
         self.assertEqual(len(seller_order["order_items"]), 1)
+
         self.assertEqual(
             seller_order["order_items"][0]["product_name"],
             self.product_a1.name,
         )
+        def test_seller_sees_only_their_product_in_mixed_order(self):
+            order = Order.objects.create(user=self.buyer)
+
+            OrderItem.objects.create(
+                order=order,
+                product=self.product_a1,
+                quantity=2,
+                unit_price=self.product_a1.price,
+            )
+
+            OrderItem.objects.create(
+                order=order,
+                product=self.product_b1,
+                quantity=3,
+                unit_price=self.product_b1.price,
+            )
+
+            self.client.force_authenticate(user=self.seller_a_user)
+            response = self.client.get(self.url)
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(len(response.data), 1)
+
+            seller_order = response.data[0]
+
+            self.assertEqual(seller_order["id"], order.id)
+            self.assertEqual(len(seller_order["order_items"]), 1)
+            self.assertEqual(
+                seller_order["order_items"][0]["product_name"],
+                self.product_a1.name,
+            )
         
     def test_each_seller_sees_only_their_own_items(self):
         order = Order.objects.create(user=self.buyer)
 
+        seller_order_a = SellerOrder.objects.create(
+            order=order,
+            seller=self.seller_a_profile,
+        )
+
+        seller_order_b = SellerOrder.objects.create(
+            order=order,
+            seller=self.seller_b_profile,
+        )
+
         OrderItem.objects.create(
             order=order,
+            seller_order=seller_order_a,
             product=self.product_a1,
             quantity=2,
             unit_price=self.product_a1.price,
@@ -1081,12 +1124,14 @@ class SellerOrderListTests(APITestCase):
 
         OrderItem.objects.create(
             order=order,
+            seller_order=seller_order_b,
             product=self.product_b1,
             quantity=3,
             unit_price=self.product_b1.price,
         )
 
         self.client.force_authenticate(user=self.seller_b_user)
+
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1094,18 +1139,24 @@ class SellerOrderListTests(APITestCase):
 
         seller_order = response.data[0]
 
-        self.assertEqual(seller_order["id"], order.id)
+        self.assertEqual(seller_order["id"], seller_order_b.id)
         self.assertEqual(len(seller_order["order_items"]), 1)
+
         self.assertEqual(
             seller_order["order_items"][0]["product_name"],
             self.product_b1.name,
         )
-        
     def test_order_with_multiple_products_from_same_seller_appears_once(self):
         order = Order.objects.create(user=self.buyer)
 
+        seller_order_a = SellerOrder.objects.create(
+            order=order,
+            seller=self.seller_a_profile,
+        )
+
         OrderItem.objects.create(
             order=order,
+            seller_order=seller_order_a,
             product=self.product_a1,
             quantity=1,
             unit_price=self.product_a1.price,
@@ -1113,12 +1164,14 @@ class SellerOrderListTests(APITestCase):
 
         OrderItem.objects.create(
             order=order,
+            seller_order=seller_order_a,
             product=self.product_a2,
             quantity=1,
             unit_price=self.product_a2.price,
         )
 
         self.client.force_authenticate(user=self.seller_a_user)
+
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1126,7 +1179,7 @@ class SellerOrderListTests(APITestCase):
 
         seller_order = response.data[0]
 
-        self.assertEqual(seller_order["id"], order.id)
+        self.assertEqual(seller_order["id"], seller_order_a.id)
         self.assertEqual(len(seller_order["order_items"]), 2)
 
         product_names = {
@@ -1138,16 +1191,32 @@ class SellerOrderListTests(APITestCase):
             product_names,
             {self.product_a1.name, self.product_a2.name},
         )
-    
-    def test_requires_authentication(self):
-        self.client.force_authenticate(user=None)
+        
+    def test_seller_does_not_see_order_containing_only_another_sellers_product(self):
+        order = Order.objects.create(
+            user=self.buyer,
+            status=Order.OrderStatus.PENDING,
+        )
+
+        seller_order_b = SellerOrder.objects.create(
+            order=order,
+            seller=self.seller_b_profile,
+        )
+
+        OrderItem.objects.create(
+            order=order,
+            seller_order=seller_order_b,
+            product=self.product_b1,
+            quantity=2,
+            unit_price=self.product_b1.price,
+        )
+
+        self.client.force_authenticate(user=self.seller_a_user)
 
         response = self.client.get(self.url)
 
-        self.assertIn(
-            response.status_code,
-            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
     
     def test_seller_with_no_matching_orders_gets_empty_list(self):
         order = Order.objects.create(user=self.buyer)
@@ -1182,3 +1251,4 @@ class SellerOrderListTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, [])
+        

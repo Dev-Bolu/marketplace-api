@@ -81,8 +81,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'marketplace_db',      # Your PostgreSQL database name
+        'USER': 'postgres',            # Your PostgreSQL username
+        'PASSWORD': '17/55Ej041',   # Your PostgreSQL password
+        'HOST': '127.0.0.1',           # Or 'localhost'
+        'PORT': '5432',                # Default PostgreSQL port
     }
 }
 
@@ -139,17 +143,4 @@ REST_FRAMEWORK = {
     ],
     
 }
-# 1) Hash cheap. PBKDF2 (~600k rounds) exists to slow attackers down --
-#    you do not want it inside your test loop. Every create_user with a
-#    password, every check_password(), every token obtain was paying it.
 
-# 3) Build tables straight from models.py instead of replaying every
-#    migration ever written.
-class DisableMigrations(dict):
-    def __contains__(self, item):
-        return True
- 
-    def __getitem__(self, item):
-        return None
- 
-MIGRATION_MODULES = DisableMigrations()

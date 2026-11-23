@@ -1,0 +1,640 @@
+[
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1500000$o2QDsjDeu0TTNT3XGtqFdt$s+MGLq9FwWZHTKyhwZemaz2NulzDFEc9dXXkuAZvVGQ=",
+    "last_login": "2026-11-22T00:57:45.030Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-10-11T00:20:17.606Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1500000$KnEDVrVoen8VmUsSYp8qSJ$M+oMQ81O3wF7m/xqNzZiRVJIzBhQtFMh4uF2b745fCk=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "marketuser",
+    "first_name": "",
+    "last_name": "",
+    "email": "marketuser@example.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-11T03:31:41.729Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1500000$eUiJ7quxgGv8uCyl0uTmkE$oOPdFdlxxpZO5UzC1hPEAwJZDTY8NjPHDGuGETVi60I=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "bolu",
+    "first_name": "",
+    "last_name": "",
+    "email": "bolu@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-12T00:05:47.431Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1500000$u2KdRcdJ0oZRE7vWgLnUnV$aNwqV3Q1xGCgMz8p05Rpp/Qh8JhLqIKrtKAWAC17j3E=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "bolu2",
+    "first_name": "",
+    "last_name": "",
+    "email": "bolu2@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-12T01:37:06.472Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1500000$z43WcaoHyCOVT4Qrbz9kYg$U4vzvK4zYRJwov17yWVP+C9dXoAk0LL41F7zVMRSTec=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "bolu3",
+    "first_name": "",
+    "last_name": "",
+    "email": "bolu3@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-12T04:21:17.988Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1500000$yZZdDodrknvta7pbm13zB1$Vu1U1bNyIapQh6krwvmoYE1I4dU/whkIJbw2QfxAYJA=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "emma",
+    "first_name": "",
+    "last_name": "",
+    "email": "emma@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-24T07:10:09.020Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1500000$u4tQoDvZAy6w9YQB4c4ghV$PUGxbl36/q+GGpmmbBp+TA5g6naXsAw1W6kKSs4Suiw=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "buyer1",
+    "first_name": "",
+    "last_name": "",
+    "email": "buyer1@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-10-24T08:38:10.919Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1500000$va300CxYC1Whh0ljDxKYZC$snddBAKeziKkejK9jr9sUrXDAXEDXqIZmi8QxT16zBQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "foyestore",
+    "first_name": "",
+    "last_name": "",
+    "email": "foye@gmai.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-11-22T01:04:29.127Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$iag3cBK7yVkVS9qNDXIDMS$R0BWRN+Ll4m/PkM3t4DPwbQAAIJcGlzW0Jev0nVWqwM=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "doyin",
+    "first_name": "",
+    "last_name": "",
+    "email": "doyin@gmail.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-11-22T02:46:12.724Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "2n76g1d4gojdw5tj9f48n4vy03qpc96h",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAUBf-FtSGlFyi4dO83EO4DWzU0Ke3K-O_apAvdnpk5L5Xyto5pa7KkidVZGXX63TDTQ-oO-J7rbdY013WZUO-KPmjT15nleTncv4Mxt_FbAyAY6gpBH4IZmMi5iEJsBdm6obexQB-LMUaAESx6R-wBJXjvO1bvD-fvN_8:1xGQoE:e_UXO2d7uCrroc2M5IhtHZnbnXc4jtzJbe1ZunwaGmg",
+    "expire_date": "2026-10-27T00:56:02.157Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "estnjnkvkvcka7obb5g5lp21wntawuds",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAUBf-FtSGlFyi4dO83EO4DWzU0Ke3K-O_apAvdnpk5L5Xyto5pa7KkidVZGXX63TDTQ-oO-J7rbdY013WZUO-KPmjT15nleTncv4Mxt_FbAyAY6gpBH4IZmMi5iEJsBdm6obexQB-LMUaAESx6R-wBJXjvO1bvD-fvN_8:1xFkg8:FlpNHDMshtl5GmQ0Rj7TasXgWnSy3hsOCqxkzphWFe4",
+    "expire_date": "2026-10-25T03:56:52.801Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "nz5qhe5f8shaghasarb6l87yxn7m8u3g",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAUBf-FtSGlFyi4dO83EO4DWzU0Ke3K-O_apAvdnpk5L5Xyto5pa7KkidVZGXX63TDTQ-oO-J7rbdY013WZUO-KPmjT15nleTncv4Mxt_FbAyAY6gpBH4IZmMi5iEJsBdm6obexQB-LMUaAESx6R-wBJXjvO1bvD-fvN_8:1xUvtp:VL3IZ_DOjbq1b-p9gTlIJxDXYK_vuUzFmi0wmYumxnA",
+    "expire_date": "2026-12-06T00:57:45.046Z"
+  }
+},
+{
+  "model": "marketplace.sellerprofile",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "admin"
+    ],
+    "business_name": "Bolu Marketplace",
+    "phone_number": "+2348012345678",
+    "created_at": "2026-10-11T02:48:05.412Z",
+    "updated_at": "2026-10-17T11:35:28.877Z"
+  }
+},
+{
+  "model": "marketplace.sellerprofile",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "bolu"
+    ],
+    "business_name": "Boluwatife Akanbi",
+    "phone_number": "+2349064762526",
+    "created_at": "2026-10-12T00:17:48.211Z",
+    "updated_at": "2026-10-17T11:35:28.877Z"
+  }
+},
+{
+  "model": "marketplace.sellerprofile",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "bolu2"
+    ],
+    "business_name": "Bolu refinery",
+    "phone_number": "+2349064762520",
+    "created_at": "2026-10-12T01:40:44.809Z",
+    "updated_at": "2026-10-17T11:35:28.877Z"
+  }
+},
+{
+  "model": "marketplace.sellerprofile",
+  "pk": 4,
+  "fields": {
+    "user": [
+      "bolu3"
+    ],
+    "business_name": "Bolu Fashion House",
+    "phone_number": "+2349064762530",
+    "created_at": "2026-10-12T04:42:17.743Z",
+    "updated_at": "2026-10-17T11:35:28.877Z"
+  }
+},
+{
+  "model": "marketplace.sellerprofile",
+  "pk": 5,
+  "fields": {
+    "user": [
+      "foyestore"
+    ],
+    "business_name": "foye fashion",
+    "phone_number": "+2348012345670",
+    "created_at": "2026-11-22T01:23:28.072Z",
+    "updated_at": "2026-11-22T01:24:35.307Z"
+  }
+},
+{
+  "model": "marketplace.store",
+  "pk": 2,
+  "fields": {
+    "seller": 3,
+    "store_name": "Bolu Petrochemical",
+    "description": "Quality petrol, diesel and petroleum products",
+    "location": "Ibeju Lekki, Lagos",
+    "is_active": true,
+    "created_at": "2026-10-12T02:25:17.899Z",
+    "updated_at": "2026-10-12T04:14:35.778Z"
+  }
+},
+{
+  "model": "marketplace.store",
+  "pk": 3,
+  "fields": {
+    "seller": 2,
+    "store_name": "Bolu Book store",
+    "description": "Quality books, novels, and educational materials",
+    "location": "Lagos, Nigeria",
+    "is_active": true,
+    "created_at": "2026-10-13T02:54:24.409Z",
+    "updated_at": "2026-10-13T02:54:24.409Z"
+  }
+},
+{
+  "model": "marketplace.store",
+  "pk": 4,
+  "fields": {
+    "seller": 2,
+    "store_name": "Bolu Consulting",
+    "description": "The best business consulting agency",
+    "location": "Lagos, Nigeria",
+    "is_active": true,
+    "created_at": "2026-10-13T07:13:00.374Z",
+    "updated_at": "2026-10-13T07:13:00.374Z"
+  }
+},
+{
+  "model": "marketplace.store",
+  "pk": 5,
+  "fields": {
+    "seller": 5,
+    "store_name": "Foye Fashion Hub",
+    "description": "A fashion store offering stylish clothing, footwear, and accessories.",
+    "location": "Ikeja, Lagos, Nigeria",
+    "is_active": true,
+    "created_at": "2026-11-22T01:54:39.931Z",
+    "updated_at": "2026-11-22T01:54:39.931Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 2,
+  "fields": {
+    "name": "Men's Fashion",
+    "slug": "mens-fashion",
+    "description": "Clothing and accessories for men",
+    "created_at": "2026-10-10T10:54:01.564Z",
+    "updated_at": "2026-10-10T11:58:59.096Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 3,
+  "fields": {
+    "name": "Home & Kitchen",
+    "slug": "home-kitchen",
+    "description": "Kitchen appliances and home decor",
+    "created_at": "2026-10-10T11:49:44.360Z",
+    "updated_at": "2026-10-10T11:49:44.360Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 4,
+  "fields": {
+    "name": "Computers & Electronics",
+    "slug": "computers-electronics",
+    "description": "Laptops, computers, and electronic devices",
+    "created_at": "2026-10-10T11:52:34.713Z",
+    "updated_at": "2026-10-10T11:52:34.713Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 5,
+  "fields": {
+    "name": "Beauty & Personal Care",
+    "slug": "beauty-personal-care",
+    "description": "Skincare, cosmetics, and personal care products",
+    "created_at": "2026-10-10T11:52:47.486Z",
+    "updated_at": "2026-10-10T11:52:47.486Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 6,
+  "fields": {
+    "name": "Phones & Accessories",
+    "slug": "phones-accessories",
+    "description": "Mobile phones, chargers, cases, and accessories",
+    "created_at": "2026-10-10T11:53:00.382Z",
+    "updated_at": "2026-10-10T11:53:00.382Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 7,
+  "fields": {
+    "name": "Electronics",
+    "slug": "electronics",
+    "description": "Electronic devices and accessories",
+    "created_at": "2026-10-10T12:12:28.299Z",
+    "updated_at": "2026-10-10T12:12:28.299Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 8,
+  "fields": {
+    "name": "Electronics",
+    "slug": "electronics-2",
+    "description": "Electronic devices and accessories",
+    "created_at": "2026-10-10T12:17:55.568Z",
+    "updated_at": "2026-10-10T12:17:55.568Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 9,
+  "fields": {
+    "name": "Electronics",
+    "slug": "electronics-3",
+    "description": "A third electronics category",
+    "created_at": "2026-10-10T12:19:08.014Z",
+    "updated_at": "2026-10-10T12:19:08.014Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 10,
+  "fields": {
+    "name": "Books & Learning",
+    "slug": "books-learning",
+    "description": "Books, textbooks, novels, and learning materials",
+    "created_at": "2026-10-10T13:13:06.496Z",
+    "updated_at": "2026-10-10T21:35:54.697Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 11,
+  "fields": {
+    "name": "Books & Education",
+    "slug": "books-education-2",
+    "description": "Another books category",
+    "created_at": "2026-10-10T20:25:21.761Z",
+    "updated_at": "2026-10-10T22:54:49.356Z"
+  }
+},
+{
+  "model": "marketplace.category",
+  "pk": 13,
+  "fields": {
+    "name": "Native Wears",
+    "slug": "native-wears",
+    "description": "Traditional Nigerian clothing and indigenous fashion.",
+    "created_at": "2026-11-22T01:58:23.645Z",
+    "updated_at": "2026-11-22T01:58:23.645Z"
+  }
+},
+{
+  "model": "marketplace.product",
+  "pk": 1,
+  "fields": {
+    "store": 2,
+    "category": 4,
+    "name": "Diesel",
+    "description": "Quality automotive diesel",
+    "price": "1200.50",
+    "stock": 50,
+    "is_active": true,
+    "created_at": "2026-10-13T01:14:00.028Z",
+    "updated_at": "2026-10-17T12:29:45.312Z"
+  }
+},
+{
+  "model": "marketplace.product",
+  "pk": 2,
+  "fields": {
+    "store": 2,
+    "category": 4,
+    "name": "Propene",
+    "description": "Quality propene gas",
+    "price": "1500.00",
+    "stock": 100,
+    "is_active": true,
+    "created_at": "2026-10-13T01:21:03.453Z",
+    "updated_at": "2026-10-26T00:54:50.512Z"
+  }
+},
+{
+  "model": "marketplace.product",
+  "pk": 3,
+  "fields": {
+    "store": 3,
+    "category": null,
+    "name": "The Making of King",
+    "description": "",
+    "price": "500.00",
+    "stock": 0,
+    "is_active": true,
+    "created_at": "2026-10-15T09:51:37.787Z",
+    "updated_at": "2026-10-15T09:51:37.787Z"
+  }
+},
+{
+  "model": "marketplace.product",
+  "pk": 4,
+  "fields": {
+    "store": 5,
+    "category": 13,
+    "name": "Buba",
+    "description": "Traditional Yoruba men's clothing.",
+    "price": "25000.00",
+    "stock": 20,
+    "is_active": true,
+    "created_at": "2026-11-22T02:07:25.299Z",
+    "updated_at": "2026-11-22T02:07:25.299Z"
+  }
+},
+{
+  "model": "marketplace.cart",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "bolu"
+    ],
+    "created_at": "2026-10-15T04:12:55.604Z",
+    "updated_at": "2026-10-15T04:12:55.604Z"
+  }
+},
+{
+  "model": "marketplace.cart",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "bolu3"
+    ],
+    "created_at": "2026-10-15T08:39:11.202Z",
+    "updated_at": "2026-10-15T08:39:11.202Z"
+  }
+},
+{
+  "model": "marketplace.cart",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "bolu2"
+    ],
+    "created_at": "2026-10-17T02:59:29.195Z",
+    "updated_at": "2026-10-17T02:59:29.195Z"
+  }
+},
+{
+  "model": "marketplace.cart",
+  "pk": 4,
+  "fields": {
+    "user": [
+      "emma"
+    ],
+    "created_at": "2026-10-24T07:12:04.932Z",
+    "updated_at": "2026-10-24T07:12:04.932Z"
+  }
+},
+{
+  "model": "marketplace.cartitem",
+  "pk": 2,
+  "fields": {
+    "cart": 2,
+    "product": 1,
+    "quantity": 41,
+    "created_at": "2026-10-15T08:39:11.214Z",
+    "updated_at": "2026-10-15T08:59:44.966Z"
+  }
+},
+{
+  "model": "marketplace.order",
+  "pk": 1,
+  "fields": {
+    "user": [
+      "bolu"
+    ],
+    "status": "PENDING",
+    "created_at": "2026-10-24T04:29:53.810Z",
+    "updated_at": "2026-10-24T04:29:53.810Z"
+  }
+},
+{
+  "model": "marketplace.order",
+  "pk": 2,
+  "fields": {
+    "user": [
+      "bolu2"
+    ],
+    "status": "PENDING",
+    "created_at": "2026-10-24T04:56:05.579Z",
+    "updated_at": "2026-10-24T04:56:05.579Z"
+  }
+},
+{
+  "model": "marketplace.order",
+  "pk": 3,
+  "fields": {
+    "user": [
+      "emma"
+    ],
+    "status": "PENDING",
+    "created_at": "2026-10-24T07:34:29.723Z",
+    "updated_at": "2026-10-24T07:34:29.723Z"
+  }
+},
+{
+  "model": "marketplace.sellerorder",
+  "pk": 1,
+  "fields": {
+    "order": 1,
+    "seller": 2,
+    "status": "PENDING",
+    "created_at": "2026-10-29T04:02:43.165Z",
+    "updated_at": "2026-10-29T04:02:43.165Z"
+  }
+},
+{
+  "model": "marketplace.sellerorder",
+  "pk": 2,
+  "fields": {
+    "order": 2,
+    "seller": 3,
+    "status": "PENDING",
+    "created_at": "2026-10-29T04:02:43.185Z",
+    "updated_at": "2026-10-29T04:02:43.185Z"
+  }
+},
+{
+  "model": "marketplace.sellerorder",
+  "pk": 3,
+  "fields": {
+    "order": 3,
+    "seller": 3,
+    "status": "PENDING",
+    "created_at": "2026-10-29T04:02:43.185Z",
+    "updated_at": "2026-10-29T04:02:43.185Z"
+  }
+},
+{
+  "model": "marketplace.orderitem",
+  "pk": 1,
+  "fields": {
+    "order": 1,
+    "seller_order": 1,
+    "product": 3,
+    "quantity": 4,
+    "unit_price": "500.00",
+    "created_at": "2026-10-24T04:29:53.822Z",
+    "updated_at": "2026-10-24T04:29:53.822Z"
+  }
+},
+{
+  "model": "marketplace.orderitem",
+  "pk": 2,
+  "fields": {
+    "order": 2,
+    "seller_order": 2,
+    "product": 1,
+    "quantity": 20,
+    "unit_price": "1200.50",
+    "created_at": "2026-10-24T04:56:05.588Z",
+    "updated_at": "2026-10-24T04:56:05.588Z"
+  }
+},
+{
+  "model": "marketplace.orderitem",
+  "pk": 3,
+  "fields": {
+    "order": 3,
+    "seller_order": 3,
+    "product": 1,
+    "quantity": 30,
+    "unit_price": "1200.50",
+    "created_at": "2026-10-24T07:34:29.732Z",
+    "updated_at": "2026-10-24T07:34:29.732Z"
+  }
+}
+]

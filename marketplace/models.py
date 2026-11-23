@@ -1,33 +1,25 @@
+from decimal import Decimal
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from django.db import models
-from phonenumber_field.modelfields import PhoneNumberField
-from decimal import Decimal
 from django.utils.text import slugify
+from phonenumber_field.modelfields import PhoneNumberField
 
 
 class SellerProfile(models.Model):
-    user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     business_name = models.CharField(max_length=100)
-    phone_number = PhoneNumberField(
-        blank=True,
-        null=True,
-        unique=True
-    )
+    phone_number = PhoneNumberField(blank=True, null=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.business_name
-    
+
+
 class Store(models.Model):
     seller = models.ForeignKey(
-        SellerProfile,
-        on_delete=models.CASCADE,
-        related_name="stores"
+        SellerProfile, on_delete=models.CASCADE, related_name="stores"
     )
     store_name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -38,7 +30,8 @@ class Store(models.Model):
 
     def __str__(self):
         return self.store_name
-    
+
+
 class Category(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True, blank=True)
@@ -51,30 +44,26 @@ class Category(models.Model):
             base_slug = slugify(self.name)
             slug = base_slug
             counter = 2
-
             while Category.objects.filter(slug=slug).exists():
                 slug = f"{base_slug}-{counter}"
                 counter += 1
-
             self.slug = slug
-
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
-    
+
+
 class Product(models.Model):
     store = models.ForeignKey(
-        Store,
-        on_delete=models.CASCADE,
-        related_name="products"
+        Store, on_delete=models.CASCADE, related_name="products"
     )
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="products"
+        related_name="products",
     )
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -90,103 +79,147 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
-    
+
+
 class Cart(models.Model):
-    user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name="cart"
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="cart")
+
     @property
     def total_price(self):
-        return sum((item.subtotal for item in self.cart_items.all()),
-        Decimal("0.00") )
+        return sum(
+            (item.subtotal for item in self.cart_items.all()), Decimal("0.00")
+        )
 
     def __str__(self):
         return f"Cart of {self.user.username}"
-        
-        
-    
-class CartItem(models.Model):   
+
+
+class CartItem(models.Model):
     cart = models.ForeignKey(
-        Cart,on_delete=models.CASCADE,
-        related_name="cart_items"
-    )   
-    product = models.ForeignKey(
-        Product,
-        on_delete=models.CASCADE,
-        related_name="cart_items"
+        Cart, on_delete=models.CASCADE, related_name="cart_items"
     )
-    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="cart_items"
+    )
+    quantity = models.PositiveIntegerField(
+        default=1, validators=[MinValueValidator(1)]
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["cart", "product"],
-                name="unique_cart_product"
+                fields=["cart", "product"], name="unique_cart_product"
             )
         ]
-    
+
     @property
     def subtotal(self):
         return self.quantity * self.product.price
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
-    
+
+
 class Order(models.Model):
-    class OrderStatus(models.TextChoices):
+    class StatusChoices(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        PAID = "PAID", "Paid"
+        SHIPPED = "SHIPPED", "Shipped"
+        DELIVERED = "DELIVERED", "Delivered"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.PENDING,
+    )
+    total_amount = models.DecimalField(max_digits=20, decimal_places=2)
+    shipping_address = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        user_str = self.user.username if self.user else "Deleted User"
+        return f"Order #{self.id} - {user_str} ({self.status})"
+
+
+class SellerOrder(models.Model):
+    class SellerOrderStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         PROCESSING = "PROCESSING", "Processing"
         SHIPPED = "SHIPPED", "Shipped"
-        CANCELLED = "CANCELLED", "Cancelled"
         DELIVERED = "DELIVERED", "Delivered"
-        
-    user = models.ForeignKey(User,on_delete=models.CASCADE, related_name="orders")
-    
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="seller_orders"
+    )
+    seller = models.ForeignKey(
+        SellerProfile, on_delete=models.CASCADE, related_name="seller_orders"
+    )
     status = models.CharField(
         max_length=20,
-        choices=OrderStatus.choices,
-        default=OrderStatus.PENDING
+        choices=SellerOrderStatus.choices,
+        default=SellerOrderStatus.PENDING,
     )
-    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    def __str__(self):
-        return f"Order #{self.id} - {self.user.username}"
-    
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order", "seller"], name="unique_order_seller"
+            )
+        ]
+
     @property
-    def total_price(self):
-        return sum(
-        (item.subtotal for item in self.order_items.all()),
-        Decimal("0.00")
+    def total_amount(self):
+        return sum((item.subtotal for item in self.items.all()), Decimal("0.00"))
+
+    def __str__(self):
+        return (
+            f"Order #{self.order.id} - {self.seller.business_name} "
+            f"({self.get_status_display()})"
         )
-    
+
+
 class OrderItem(models.Model):
     order = models.ForeignKey(
-        Order,
-        on_delete=models.CASCADE,
-        related_name="order_items"
+        Order, on_delete=models.CASCADE, related_name="order_items"
     )
-    product = models.ForeignKey(Product,on_delete=models.PROTECT,related_name="order_items")
-    quantity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    seller_order = models.ForeignKey(
+        SellerOrder,
+        on_delete=models.CASCADE,
+        related_name="items",
+        null=True,
+        blank=True,
+    )
+    product = models.ForeignKey(
+        Product, on_delete=models.PROTECT, related_name="order_items"
+    )
+    product_name = models.CharField(max_length=255)
+    quantity = models.PositiveIntegerField(
+        default=1, validators=[MinValueValidator(1)]
+    )
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     @property
     def subtotal(self):
         return self.quantity * self.unit_price
-    
+
     def __str__(self):
-        return f"{self.quantity} x {self.product.name} (Order #{self.order.id})"
-
-
-
-    
+        return f"{self.quantity} x {self.product_name} (Order #{self.order.id})"
